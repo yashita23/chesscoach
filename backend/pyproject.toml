@@ -1,0 +1,38 @@
+[project]
+name = "chesscoach-backend"
+version = "0.1.0"
+description = "Backend của hệ gợi ý bài tập cờ cá nhân hóa"
+authors = [
+    { name = "Licht1906", email = "nhvuliz196@gmail.com" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "bcrypt>=5.0.0",
+    "fastapi>=0.162.7",
+    "pydantic[email]>=2.14.3",
+    "sqlalchemy>=2.1.8",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.2,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "mypy>=2.4.1",
+    "pytest>=9.2.0",
+]
+
+[tool.uv.build-backend]
+module-name = "chesscoach"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["ignore:Using `httpx` with `starlette.testclient` is deprecated"]
+
+[tool.mypy]
+strict = true
+packages = ["chesscoach", "tests"]
+mypy_path = "src"

@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { api, ApiError, type Player } from './api'
+import ProfileView from './ProfileView'
 import PuzzleTrainer from './PuzzleTrainer'
 
 type Mode = 'login' | 'register'
@@ -102,7 +103,11 @@ function AuthForm({ onAuthenticated }: { onAuthenticated: (p: Player) => void })
   )
 }
 
+type Tab = 'train' | 'profile'
+
 function Home({ player, onLogout }: { player: Player; onLogout: () => void }) {
+  const [tab, setTab] = useState<Tab>('train')
+
   async function logout() {
     await api.logout().catch(() => undefined)
     onLogout()
@@ -112,6 +117,14 @@ function Home({ player, onLogout }: { player: Player; onLogout: () => void }) {
     <>
       <header className="topbar">
         <strong>Chess Coach</strong>
+        <nav className="tabs" aria-label="Màn hình">
+          <button type="button" aria-current={tab === 'train'} onClick={() => setTab('train')}>
+            Luyện tập
+          </button>
+          <button type="button" aria-current={tab === 'profile'} onClick={() => setTab('profile')}>
+            Hồ sơ kỹ năng
+          </button>
+        </nav>
         <span>
           {player.display_name}
           <button type="button" className="link" onClick={logout}>
@@ -119,9 +132,7 @@ function Home({ player, onLogout }: { player: Player; onLogout: () => void }) {
           </button>
         </span>
       </header>
-      <main className="content">
-        <PuzzleTrainer />
-      </main>
+      <main className="content">{tab === 'train' ? <PuzzleTrainer /> : <ProfileView />}</main>
     </>
   )
 }

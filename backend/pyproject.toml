@@ -37,5 +37,5 @@ filterwarnings = ["ignore:Using `httpx` with `starlette.testclient` is deprecate
 
 [tool.mypy]
 strict = true
-packages = ["chesscoach", "tests"]
-mypy_path = "src"
+files = ["src/chesscoach", "tests"]
+mypy_path = "src:tests"

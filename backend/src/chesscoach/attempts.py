@@ -8,9 +8,12 @@ from fastapi import Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel
 from sqlalchemy import select
 
+from chesscoach.ability import predict
 from chesscoach.auth import CurrentPlayer, Db, player_api_router
 from chesscoach.db import Attempt
+from chesscoach.profile import player_ability
 from chesscoach.puzzles import Puzzle, PuzzleCatalog
+from chesscoach.skills import skills_of
 from chesscoach.solving import IllegalMove, board_at, judge, player_color
 
 router = player_api_router()
@@ -69,9 +72,11 @@ class AttemptOut(BaseModel):
     opponent_move: str
     fen: str
     player_color: Literal["white", "black"]
+    predicted_p: float
+    """Xác suất giải đúng mà mô hình năng lực dự đoán, tính trước lần giải này."""
 
 
-def _attempt_out(attempt: Attempt, puzzle: Puzzle) -> AttemptOut:
+def _attempt_out(attempt: Attempt, puzzle: Puzzle, predicted_p: float) -> AttemptOut:
     # next_ply luôn trỏ vào lượt của người chơi; nước ngay trước đó là nước vừa đi của đối thủ.
     last_opponent_ply = attempt.next_ply - 1
     return AttemptOut(
@@ -82,6 +87,7 @@ def _attempt_out(attempt: Attempt, puzzle: Puzzle) -> AttemptOut:
         opponent_move=puzzle.moves[last_opponent_ply],
         fen=board_at(puzzle, attempt.next_ply).fen(),
         player_color="white" if player_color(puzzle) == chess.WHITE else "black",
+        predicted_p=round(predicted_p, 4),
     )
 
 
@@ -91,6 +97,7 @@ def start_attempt(
 ) -> AttemptOut:
     """Mở lần giải cho một bài tập. Lần giải đang dở thì mở lại (200); bài tập đã có nhãn thì 409."""
     puzzle = _puzzle_or_404(catalog, body.puzzle_id)
+    p = predict(player_ability(db, player.id), skills_of(puzzle.themes), puzzle.rating)
     existing = db.scalars(
         select(Attempt).where(Attempt.player_id == player.id, Attempt.puzzle_id == puzzle.id)
     ).first()
@@ -98,12 +105,18 @@ def start_attempt(
         if existing.correct is not None:
             raise HTTPException(status.HTTP_409_CONFLICT, "Bạn đã làm bài tập này")
         response.status_code = status.HTTP_200_OK
-        return _attempt_out(existing, puzzle)
+        return _attempt_out(existing, puzzle, p)
 
-    attempt = Attempt(player_id=player.id, puzzle_id=puzzle.id, started_at=_now())
+    attempt = Attempt(
+        player_id=player.id,
+        puzzle_id=puzzle.id,
+        puzzle_rating=puzzle.rating,
+        puzzle_themes=" ".join(puzzle.themes),
+        started_at=_now(),
+    )
     db.add(attempt)
     db.commit()
-    return _attempt_out(attempt, puzzle)
+    return _attempt_out(attempt, puzzle, p)
 
 
 class AttemptSummaryOut(BaseModel):

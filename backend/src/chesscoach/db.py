@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, create_engine, func
+from sqlalchemy import DateTime, ForeignKey, String, create_engine, func, inspect, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.pool import StaticPool
@@ -46,11 +46,31 @@ class Attempt(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     player_id: Mapped[int] = mapped_column(ForeignKey("players.id", ondelete="CASCADE"), index=True)
     puzzle_id: Mapped[str] = mapped_column(String(16))
+    # Ảnh chụp bài tập lúc mở lần giải, để tính lại năng lực mà không phải tra kho bài tập.
+    puzzle_rating: Mapped[int | None] = mapped_column(default=None)
+    puzzle_themes: Mapped[str | None] = mapped_column(String(500), default=None)
     started_at: Mapped[datetime] = mapped_column(DateTime)
     next_ply: Mapped[int] = mapped_column(default=1)
     completed: Mapped[bool] = mapped_column(default=False)
     correct: Mapped[bool | None] = mapped_column(default=None)
     solve_time_ms: Mapped[int | None] = mapped_column(default=None)
+
+
+def add_missing_columns(engine: Engine) -> None:
+    """Thêm cột mới (cho phép NULL) vào bảng đã có, vì create_all không sửa bảng cũ.
+
+    Chưa có công cụ migration; đủ cho DB local khi model chỉ thêm cột.
+    """
+    inspector = inspect(engine)
+    with engine.begin() as conn:
+        for table in Base.metadata.sorted_tables:
+            if not inspector.has_table(table.name):
+                continue
+            existing = {c["name"] for c in inspector.get_columns(table.name)}
+            for column in table.columns:
+                if column.name not in existing:
+                    kind = column.type.compile(engine.dialect)
+                    conn.execute(text(f'ALTER TABLE "{table.name}" ADD COLUMN "{column.name}" {kind}'))
 
 
 def make_engine(database_url: str) -> Engine:

@@ -54,6 +54,8 @@ export type Attempt = {
   opponent_move: string
   fen: string
   player_color: Color
+  /** Xác suất giải đúng mà mô hình năng lực dự đoán trước lần giải. */
+  predicted_p: number
 }
 
 export type MoveResult = {
@@ -64,6 +66,35 @@ export type MoveResult = {
   completed: boolean
   /** Nhãn của lần giải; null khi chưa chốt. */
   correct: boolean | null
+}
+
+export type SkillProfile = {
+  id: string
+  name: string
+  description: string
+  group: string
+  rating: number
+  deviation: number
+  ci_low: number
+  ci_high: number
+  attempts: number
+  enough_data: boolean
+}
+
+export type SkillGroupProfile = {
+  id: string
+  name: string
+  rating: number | null
+  skills: string[]
+}
+
+export type Profile = {
+  theta: number
+  ci_low: number
+  ci_high: number
+  attempts: number
+  skills: SkillProfile[]
+  groups: SkillGroupProfile[]
 }
 
 export const api = {
@@ -77,4 +108,5 @@ export const api = {
   startAttempt: (puzzle_id: string) => request<Attempt>('POST', '/attempts', { puzzle_id }),
   playMove: (attemptId: number, uci: string) =>
     request<MoveResult>('POST', `/attempts/${attemptId}/moves`, { uci }),
+  profile: () => request<Profile>('GET', '/profile'),
 }

@@ -1,6 +1,5 @@
-from typing import Any
-
 from fastapi.testclient import TestClient
+from helpers import play, start
 
 # Bài 0VN0C (rating 1699): người chơi cầm trắng, đi 3 nước d6d7, d4d7, g7e5.
 # Moves: e8e7 d6d7 f6d7 d4d7 e7d7 g7e5
@@ -12,20 +11,6 @@ MATE_PUZZLE = "BXfU5"
 
 # Bài 9v8Hb: người chơi cầm đen; Moves a7b7 b8b7 f7f8q c2c1q (phong hậu ở nước cuối).
 PROMOTION_PUZZLE = "9v8Hb"
-
-
-def start(client: TestClient, puzzle_id: str) -> dict[str, Any]:
-    r = client.post("/api/attempts", json={"puzzle_id": puzzle_id})
-    assert r.status_code == 201, r.text
-    body: dict[str, Any] = r.json()
-    return body
-
-
-def play(client: TestClient, attempt_id: int, uci: str) -> dict[str, Any]:
-    r = client.post(f"/api/attempts/{attempt_id}/moves", json={"uci": uci})
-    assert r.status_code == 200, r.text
-    body: dict[str, Any] = r.json()
-    return body
 
 
 def test_bat_dau_lan_giai_thi_doi_thu_da_di_nuoc_dau(player: TestClient) -> None:

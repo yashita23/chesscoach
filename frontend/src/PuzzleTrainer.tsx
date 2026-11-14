@@ -180,7 +180,8 @@ export default function PuzzleTrainer() {
       <aside className="panel">
         {attempt && (
           <p className="meta">
-            Bài tập <code>{attempt.puzzle_id}</code> · rating {attempt.rating}
+            Bài tập <code>{attempt.puzzle_id}</code> · rating {attempt.rating} · dự đoán bạn giải đúng{' '}
+            {Math.round(attempt.predicted_p * 100)}%
           </p>
         )}
         <p className="turn">

@@ -11,5 +11,6 @@ def create_app(database_url: str) -> FastAPI:
 
     app = FastAPI(title="Chess Coach")
     app.state.session_factory = sessionmaker(engine, expire_on_commit=False)
-    app.include_router(auth.router)
+    app.include_router(auth.auth_router)
+    app.include_router(auth.player_router)
     return app

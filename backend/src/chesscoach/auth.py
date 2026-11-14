@@ -5,7 +5,7 @@ from typing import Annotated
 
 import bcrypt
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import AfterValidator, BaseModel, EmailStr, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
@@ -14,6 +14,8 @@ from chesscoach.db import LoginSession, Player
 
 SESSION_COOKIE = "chesscoach_session"
 BCRYPT_MAX_BYTES = 72
+# So khớp với hash giả khi email không tồn tại, để thời gian phản hồi không lộ email nào đã đăng ký.
+_DUMMY_HASH = bcrypt.hashpw(b"khong-dung-de-dang-nhap", bcrypt.gensalt())
 
 
 def get_db(request: Request) -> Iterator[Session]:
@@ -23,96 +25,103 @@ def get_db(request: Request) -> Iterator[Session]:
 
 
 Db = Annotated[Session, Depends(get_db)]
+SessionToken = Annotated[str | None, Cookie(alias=SESSION_COOKIE)]
+# Email so sánh không phân biệt hoa thường; chuẩn hóa một chỗ duy nhất.
+NormalizedEmail = Annotated[EmailStr, AfterValidator(str.lower)]
 
 
 class RegisterRequest(BaseModel):
-    email: EmailStr
+    email: NormalizedEmail
     password: str = Field(min_length=8)
     display_name: str = Field(min_length=1, max_length=100)
 
     @field_validator("password")
     @classmethod
-    def _vua_gioi_han_bcrypt(cls, password: str) -> str:
+    def _password_fits_bcrypt(cls, password: str) -> str:
         if len(password.encode()) > BCRYPT_MAX_BYTES:
             raise ValueError(f"Mật khẩu dài tối đa {BCRYPT_MAX_BYTES} byte")
         return password
+
+
+class LoginRequest(BaseModel):
+    email: NormalizedEmail
+    password: str
 
 
 class PlayerOut(BaseModel):
     email: str
     display_name: str
 
+    @classmethod
+    def of(cls, player: Player) -> "PlayerOut":
+        return cls(email=player.email, display_name=player.display_name)
+
 
 def _token_hash(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
-def _start_session(db: Session, response: Response, player: Player) -> None:
+def _find_login_session(db: Session, token: str | None) -> LoginSession | None:
+    return None if token is None else db.get(LoginSession, _token_hash(token))
+
+
+def _start_login_session(db: Session, response: Response, player: Player) -> None:
     token = secrets.token_urlsafe(32)
     db.add(LoginSession(token_hash=_token_hash(token), player_id=player.id))
     db.commit()
     response.set_cookie(SESSION_COOKIE, token, httponly=True, samesite="lax")
 
 
-def current_player(
-    db: Db, token: Annotated[str | None, Cookie(alias=SESSION_COOKIE)] = None
-) -> Player:
-    if token is not None:
-        session = db.get(LoginSession, _token_hash(token))
-        if session is not None:
-            player = db.get(Player, session.player_id)
-            if player is not None:
-                return player
-    raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Bạn cần đăng nhập")
+def current_player(db: Db, token: SessionToken = None) -> Player:
+    login_session = _find_login_session(db, token)
+    player = None if login_session is None else db.get(Player, login_session.player_id)
+    if player is None:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Bạn cần đăng nhập")
+    return player
 
 
 CurrentPlayer = Annotated[Player, Depends(current_player)]
 
-router = APIRouter(prefix="/api")
+# Route công khai: chỉ đăng ký, đăng nhập, đăng xuất.
+auth_router = APIRouter(prefix="/api/auth")
+# Mọi API của người chơi gắn vào đây; chưa đăng nhập thì bị chặn ở mức router.
+player_router = APIRouter(prefix="/api", dependencies=[Depends(current_player)])
 
 
-@router.post("/auth/register", status_code=status.HTTP_201_CREATED)
+@auth_router.post("/register", status_code=status.HTTP_201_CREATED)
 def register(body: RegisterRequest, db: Db, response: Response) -> PlayerOut:
-    email = body.email.lower()
     password_hash = bcrypt.hashpw(body.password.encode(), bcrypt.gensalt())
-    player = Player(email=email, display_name=body.display_name, password_hash=password_hash)
+    player = Player(email=body.email, display_name=body.display_name, password_hash=password_hash)
     db.add(player)
     try:
         db.commit()
     except IntegrityError:
         db.rollback()
         raise HTTPException(status.HTTP_409_CONFLICT, "Email này đã được đăng ký")
-    _start_session(db, response, player)
-    return PlayerOut(email=player.email, display_name=player.display_name)
+    _start_login_session(db, response, player)
+    return PlayerOut.of(player)
 
 
-class LoginRequest(BaseModel):
-    email: EmailStr
-    password: str
-
-
-@router.post("/auth/login")
+@auth_router.post("/login")
 def login(body: LoginRequest, db: Db, response: Response) -> PlayerOut:
-    player = db.scalars(select(Player).where(Player.email == body.email.lower())).one_or_none()
-    if player is None or not bcrypt.checkpw(body.password.encode(), player.password_hash):
+    player = db.scalars(select(Player).where(Player.email == body.email)).one_or_none()
+    stored_hash = _DUMMY_HASH if player is None else player.password_hash
+    password_ok = bcrypt.checkpw(body.password.encode(), stored_hash)
+    if player is None or not password_ok:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Email hoặc mật khẩu không đúng")
-    _start_session(db, response, player)
-    return PlayerOut(email=player.email, display_name=player.display_name)
+    _start_login_session(db, response, player)
+    return PlayerOut.of(player)
 
 
-@router.post("/auth/logout", status_code=status.HTTP_204_NO_CONTENT)
-def logout(
-    db: Db, response: Response, token: Annotated[str | None, Cookie(alias=SESSION_COOKIE)] = None
-) -> None:
-    if token is not None:
-        session = db.get(LoginSession, _token_hash(token))
-        if session is not None:
-            db.delete(session)
-            db.commit()
+@auth_router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
+def logout(db: Db, response: Response, token: SessionToken = None) -> None:
+    login_session = _find_login_session(db, token)
+    if login_session is not None:
+        db.delete(login_session)
+        db.commit()
     response.delete_cookie(SESSION_COOKIE)
 
 
-@router.get("/me")
+@player_router.get("/me")
 def me(player: CurrentPlayer) -> PlayerOut:
-    return PlayerOut(email=player.email, display_name=player.display_name)
-
+    return PlayerOut.of(player)

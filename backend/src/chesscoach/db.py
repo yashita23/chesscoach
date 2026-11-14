@@ -33,11 +33,8 @@ class LoginSession(Base):
 
 
 def make_engine(database_url: str) -> Engine:
+    connect_args = {"check_same_thread": False}
     if database_url in ("sqlite://", "sqlite:///:memory:"):
         # Một kết nối dùng chung để DB trong bộ nhớ sống suốt vòng đời app.
-        return create_engine(
-            database_url,
-            connect_args={"check_same_thread": False},
-            poolclass=StaticPool,
-        )
-    return create_engine(database_url, connect_args={"check_same_thread": False})
+        return create_engine(database_url, connect_args=connect_args, poolclass=StaticPool)
+    return create_engine(database_url, connect_args=connect_args)

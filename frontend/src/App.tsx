@@ -16,11 +16,11 @@ export default function App() {
   }, [])
 
   if (loading) return <main className="center">Đang tải…</main>
-  if (player === null) return <AuthForm onDone={setPlayer} />
+  if (player === null) return <AuthForm onAuthenticated={setPlayer} />
   return <Home player={player} onLogout={() => setPlayer(null)} />
 }
 
-function AuthForm({ onDone }: { onDone: (p: Player) => void }) {
+function AuthForm({ onAuthenticated }: { onAuthenticated: (p: Player) => void }) {
   const [mode, setMode] = useState<Mode>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -37,7 +37,7 @@ function AuthForm({ onDone }: { onDone: (p: Player) => void }) {
         mode === 'login'
           ? await api.login(email, password)
           : await api.register(email, password, displayName)
-      onDone(p)
+      onAuthenticated(p)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Không kết nối được máy chủ')
     } finally {
@@ -84,7 +84,7 @@ function AuthForm({ onDone }: { onDone: (p: Player) => void }) {
           </p>
         )}
         <button type="submit" disabled={busy}>
-          {isLogin ? 'Đăng nhập' : 'Tạo tài khoản'}
+          {isLogin ? 'Đăng nhập' : 'Đăng ký'}
         </button>
         <button
           type="button"
@@ -94,7 +94,7 @@ function AuthForm({ onDone }: { onDone: (p: Player) => void }) {
             setError(null)
           }}
         >
-          {isLogin ? 'Chưa có tài khoản? Đăng ký' : 'Đã có tài khoản? Đăng nhập'}
+          {isLogin ? 'Chưa đăng ký? Đăng ký ngay' : 'Đã đăng ký? Đăng nhập'}
         </button>
       </form>
     </main>

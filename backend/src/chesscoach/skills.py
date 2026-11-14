@@ -68,7 +68,7 @@ SKILLS: tuple[Skill, ...] = (
     _skill("quiet_move", "Nước lặng và nước trung gian",
            "Nước không ăn, không chiếu nhưng tạo đe dọa không chống đỡ nổi, hoặc chen một nước mạnh vào giữa.",
            "combinations", "quietMove intermezzo zugzwang collinearMove"),
-    _skill(MISSED_TACTIC, "Chiến thuật khác", "Đòn chiến thuật không thuộc mẫu nào ở trên.",
+    _skill(MISSED_TACTIC, "Bỏ lỡ chiến thuật", "Đòn chiến thuật chung, không thuộc mẫu riêng nào ở trên.",
            "combinations", "enPassant castling"),
     _skill("mate_in_1", "Chiếu hết 1 nước", "Tìm nước chiếu hết ngay lập tức.", "mating", "mateIn1"),
     _skill("mate_in_n", "Chiếu hết nhiều nước", "Tính một chuỗi 2–5 nước để chiếu hết.",

@@ -1,4 +1,5 @@
-from datetime import datetime
+from collections.abc import Iterable
+from datetime import datetime, timedelta
 
 from sqlalchemy import DateTime, ForeignKey, String, create_engine, func, inspect, text
 from sqlalchemy.engine import Engine
@@ -49,11 +50,27 @@ class Attempt(Base):
     # Ảnh chụp bài tập lúc mở lần giải, để tính lại năng lực mà không phải tra kho bài tập.
     puzzle_rating: Mapped[int | None] = mapped_column(default=None)
     puzzle_themes: Mapped[str | None] = mapped_column(String(500), default=None)
+    """Các chủ đề của bài tập, cách nhau bởi dấu cách; đọc qua `themes`."""
     started_at: Mapped[datetime] = mapped_column(DateTime)
     next_ply: Mapped[int] = mapped_column(default=1)
     completed: Mapped[bool] = mapped_column(default=False)
     correct: Mapped[bool | None] = mapped_column(default=None)
     solve_time_ms: Mapped[int | None] = mapped_column(default=None)
+
+    @property
+    def themes(self) -> tuple[str, ...]:
+        return tuple((self.puzzle_themes or "").split())
+
+    @themes.setter
+    def themes(self, themes: Iterable[str]) -> None:
+        self.puzzle_themes = " ".join(themes)
+
+    @property
+    def decided_at(self) -> datetime | None:
+        """Lúc chốt nhãn: thời điểm mở cộng thời gian giải."""
+        if self.solve_time_ms is None:
+            return None
+        return self.started_at + timedelta(milliseconds=self.solve_time_ms)
 
 
 def add_missing_columns(engine: Engine) -> None:

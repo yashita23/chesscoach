@@ -11,15 +11,23 @@ Một thế cờ trong kho Lichess kèm lời giải, độ khó và các chủ 
 _Tránh_: puzzle, câu đố, bài
 
 **Chủ đề**:
-Nhãn chiến thuật hoặc giai đoạn mà Lichess gắn cho bài tập (khoảng 60 loại, ví dụ `fork`, `backRankMate`, `rookEndgame`).
+Nhãn mà Lichess gắn cho bài tập (73 loại, ví dụ `fork`, `backRankMate`, `rookEndgame`). Có hai loại: chủ đề kỹ năng và chủ đề mô tả.
 _Tránh_: theme, tag
 
+**Chủ đề mô tả**:
+Chủ đề chỉ mô tả bài tập mà không nói kỹ năng nào: độ dài, mức lợi thế, giai đoạn ván, nguồn ván (ví dụ `short`, `crushing`, `endgame`, `master`). Không thuộc kỹ năng nào.
+_Tránh_: meta theme
+
 **Kỹ năng**:
-Một trong 15–20 nhóm chủ đề mà mô hình năng lực theo dõi riêng; mỗi chủ đề thuộc đúng một kỹ năng.
+Một trong 15–20 nhóm chủ đề mà mô hình năng lực theo dõi riêng; mỗi chủ đề kỹ năng thuộc đúng một kỹ năng. Bài tập không có chủ đề kỹ năng nào thuộc kỹ năng "bỏ lỡ chiến thuật".
 _Tránh_: skill, năng lực con, mảng
 
+**Nhóm kỹ năng**:
+Một trong vài nhóm gom các kỹ năng gần nhau (ví dụ "Chiếu hết", "Tàn cuộc") để hiển thị tổng quan trên radar; mô hình năng lực không dùng nhóm.
+_Tránh_: nhóm radar, nhóm (nói trống, dễ lẫn với Nhóm tham chiếu)
+
 **Bản đồ kỹ năng**:
-Bảng duy nhất gán mỗi chủ đề vào một kỹ năng, dùng chung cho cả bài tập lẫn lỗi trong ván.
+Bảng duy nhất gán mỗi chủ đề kỹ năng vào một kỹ năng, dùng chung cho cả bài tập lẫn lỗi trong ván.
 
 **Rating bài tập**:
 Độ khó của một bài tập theo thang Glicko-2 của Lichess.
@@ -44,8 +52,12 @@ Những người chơi có năng lực chung trong cùng một dải 200 điểm
 _Tránh_: người cùng Elo, peer group
 
 **Năng lực**:
-Ước lượng θ về sức giải bài của một người chơi, gồm năng lực chung và độ lệch theo từng kỹ năng, nằm cùng thang với rating bài tập.
+Ước lượng θ về sức giải bài tập của một người chơi, gồm năng lực chung và độ lệch theo từng kỹ năng, nằm cùng thang với rating bài tập. Năng lực ở một kỹ năng là năng lực chung cộng độ lệch của kỹ năng đó.
 _Tránh_: Elo (khi nói về θ), điểm, level
+
+**Hồ sơ kỹ năng**:
+Màn hình và dữ liệu cho người chơi xem năng lực chung, năng lực từng kỹ năng kèm khoảng tin cậy, và radar theo nhóm kỹ năng.
+_Tránh_: profile, trang cá nhân
 
 **Rating ván**:
 Rating của người chơi trên Lichess hoặc Chess.com khi chơi ván; chỉ dùng làm tiên nghiệm thô cho năng lực.

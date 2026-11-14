@@ -68,15 +68,17 @@ export type MoveResult = {
   correct: boolean | null
 }
 
+export type Interval = { low: number; high: number }
+
 export type SkillProfile = {
   id: string
   name: string
   description: string
   group: string
-  rating: number
+  /** Năng lực ở kỹ năng này (θ + θₖ), cùng thang rating bài tập. */
+  ability: number
   deviation: number
-  ci_low: number
-  ci_high: number
+  ci: Interval
   attempts: number
   enough_data: boolean
 }
@@ -84,14 +86,13 @@ export type SkillProfile = {
 export type SkillGroupProfile = {
   id: string
   name: string
-  rating: number | null
+  ability: number | null
   skills: string[]
 }
 
 export type Profile = {
   theta: number
-  ci_low: number
-  ci_high: number
+  ci: Interval
   attempts: number
   skills: SkillProfile[]
   groups: SkillGroupProfile[]

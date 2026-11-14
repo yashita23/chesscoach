@@ -11,7 +11,7 @@ from sqlalchemy import select
 from chesscoach.ability import predict
 from chesscoach.auth import CurrentPlayer, Db, player_api_router
 from chesscoach.db import Attempt
-from chesscoach.profile import player_ability
+from chesscoach.ability_history import player_ability
 from chesscoach.puzzles import Puzzle, PuzzleCatalog
 from chesscoach.skills import skills_of
 from chesscoach.solving import IllegalMove, board_at, judge, player_color
@@ -73,7 +73,7 @@ class AttemptOut(BaseModel):
     fen: str
     player_color: Literal["white", "black"]
     predicted_p: float
-    """Xác suất giải đúng mà mô hình năng lực dự đoán, tính trước lần giải này."""
+    """Xác suất giải đúng mà mô hình năng lực dự đoán từ các lần giải đã có nhãn (chưa gồm lần này)."""
 
 
 def _attempt_out(attempt: Attempt, puzzle: Puzzle, predicted_p: float) -> AttemptOut:
@@ -111,9 +111,9 @@ def start_attempt(
         player_id=player.id,
         puzzle_id=puzzle.id,
         puzzle_rating=puzzle.rating,
-        puzzle_themes=" ".join(puzzle.themes),
         started_at=_now(),
     )
+    attempt.themes = puzzle.themes
     db.add(attempt)
     db.commit()
     return _attempt_out(attempt, puzzle, p)

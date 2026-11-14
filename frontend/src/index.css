@@ -343,3 +343,7 @@ table.skills {
   color: var(--muted);
   font-style: italic;
 }
+
+.radar-missing {
+  font-style: italic;
+}

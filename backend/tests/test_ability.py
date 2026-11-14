@@ -3,9 +3,9 @@ from typing import Any
 from fastapi.testclient import TestClient
 from helpers import play, start
 
-# Bài GqnTb (rating 1539): chỉ có kỹ năng fork. Lời giải d1a4 … a4b4; c4e6 là nước sai.
+# Bài tập GqnTb (rating 1539): chỉ có kỹ năng fork. Lời giải d1a4 … a4b4; c4e6 là nước sai.
 FORK_PUZZLE = "GqnTb"
-# Bài 0VN0C (rating 1699).
+# Bài tập 0VN0C (rating 1699).
 PUZZLE_1699 = "0VN0C"
 
 
@@ -35,7 +35,7 @@ def test_ho_so_nguoi_choi_moi_chua_du_du_lieu(player: TestClient) -> None:
     assert prof["attempts"] == 0
     assert 15 <= len(prof["skills"]) <= 20
     assert all(not s["enough_data"] for s in prof["skills"])
-    assert all(g["rating"] is None for g in prof["groups"])
+    assert all(g["ability"] is None for g in prof["groups"])
     grouped = sorted(skill_id for g in prof["groups"] for skill_id in g["skills"])
     assert grouped == sorted(s["id"] for s in prof["skills"])  # mỗi kỹ năng thuộc đúng một nhóm radar
 
@@ -50,7 +50,7 @@ def test_giai_dung_bai_tap_fork_thi_nang_luc_fork_tang_ky_nang_khac_giu_nguyen(
 
     after = profile(player)
 
-    assert skill(after, "fork")["rating"] > skill(before, "fork")["rating"]
+    assert skill(after, "fork")["ability"] > skill(before, "fork")["ability"]
     assert skill(after, "fork")["deviation"] > 0
     assert skill(after, "fork")["attempts"] == 1
     assert skill(after, "fork")["enough_data"] is True
@@ -65,7 +65,7 @@ def test_giai_sai_bai_tap_fork_thi_nang_luc_fork_giam(player: TestClient) -> Non
 
     after = profile(player)
 
-    assert skill(after, "fork")["rating"] < skill(before, "fork")["rating"]
+    assert skill(after, "fork")["ability"] < skill(before, "fork")["ability"]
     assert skill(after, "fork")["deviation"] < 0
     assert skill(after, "pin")["deviation"] == 0
 
@@ -73,7 +73,7 @@ def test_giai_sai_bai_tap_fork_thi_nang_luc_fork_giam(player: TestClient) -> Non
 def test_khoang_tin_cay_hep_lai_sau_moi_lan_giai(player: TestClient) -> None:
     def width(prof: dict[str, Any]) -> float:
         s = skill(prof, "fork")
-        return float(s["ci_high"] - s["ci_low"])
+        return float(s["ci"]["high"] - s["ci"]["low"])
 
     before = profile(player)
     attempt_id = start(player, FORK_PUZZLE)["attempt_id"]

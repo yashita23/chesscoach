@@ -44,6 +44,28 @@ async function errorMessage(res: Response): Promise<string> {
   return `Lỗi máy chủ (${res.status})`
 }
 
+export type Color = 'white' | 'black'
+
+export type Attempt = {
+  attempt_id: number
+  puzzle_id: string
+  rating: number
+  start_fen: string
+  opponent_move: string
+  fen: string
+  player_color: Color
+}
+
+export type MoveResult = {
+  verdict: 'correct' | 'wrong'
+  fen: string
+  opponent_move: string | null
+  expected_move: string | null
+  completed: boolean
+  /** Nhãn của lần giải; null khi chưa chốt. */
+  correct: boolean | null
+}
+
 export const api = {
   me: () => request<Player>('GET', '/me'),
   register: (email: string, password: string, display_name: string) =>
@@ -51,4 +73,8 @@ export const api = {
   login: (email: string, password: string) =>
     request<Player>('POST', '/auth/login', { email, password }),
   logout: () => request<void>('POST', '/auth/logout'),
+  nextPuzzle: () => request<{ puzzle_id: string }>('GET', '/puzzles/next'),
+  startAttempt: (puzzle_id: string) => request<Attempt>('POST', '/attempts', { puzzle_id }),
+  playMove: (attemptId: number, uci: string) =>
+    request<MoveResult>('POST', `/attempts/${attemptId}/moves`, { uci }),
 }

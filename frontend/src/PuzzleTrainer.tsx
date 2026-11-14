@@ -1,0 +1,201 @@
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Chess } from 'chess.js'
+import { Chessboard } from 'react-chessboard'
+import type { Arrow, Piece, PromotionPieceOption, Square } from 'react-chessboard/dist/chessboard/types'
+import { api, ApiError, type Attempt } from './api'
+
+const OPPONENT_DELAY_MS = 450
+
+type Phase =
+  | { kind: 'loading' }
+  | { kind: 'error'; message: string }
+  | { kind: 'opponent' } // đang chờ diễn nước của đối thủ
+  | { kind: 'turn' } // tới lượt người giải
+  | { kind: 'sending' }
+  | { kind: 'done'; correct: boolean }
+
+type Feedback = { tone: 'good' | 'bad' | 'info'; text: string } | null
+
+function squares(uci: string): [Square, Square] {
+  return [uci.slice(0, 2) as Square, uci.slice(2, 4) as Square]
+}
+
+function highlight(uci: string | null): Record<string, React.CSSProperties> {
+  if (!uci) return {}
+  const [from, to] = squares(uci)
+  const style = { background: 'rgba(255, 214, 10, 0.45)' }
+  return { [from]: style, [to]: style }
+}
+
+export default function PuzzleTrainer() {
+  const [attempt, setAttempt] = useState<Attempt | null>(null)
+  const [fen, setFen] = useState<string>('start')
+  const [lastMove, setLastMove] = useState<string | null>(null)
+  const [arrow, setArrow] = useState<Arrow[]>([])
+  const [phase, setPhase] = useState<Phase>({ kind: 'loading' })
+  const [feedback, setFeedback] = useState<Feedback>(null)
+  // Đã đi sai trong lần giải này: nhãn đã chốt là sai, người chơi đang đi tiếp lời giải.
+  const [failed, setFailed] = useState(false)
+  const timer = useRef<number | undefined>(undefined)
+
+  const later = useCallback((fn: () => void) => {
+    window.clearTimeout(timer.current)
+    timer.current = window.setTimeout(fn, OPPONENT_DELAY_MS)
+  }, [])
+
+  useEffect(() => () => window.clearTimeout(timer.current), [])
+
+  const loadNext = useCallback(async () => {
+    setPhase({ kind: 'loading' })
+    setFeedback(null)
+    setArrow([])
+    setLastMove(null)
+    setFailed(false)
+    try {
+      const { puzzle_id } = await api.nextPuzzle()
+      const a = await api.startAttempt(puzzle_id)
+      setAttempt(a)
+      setFen(a.start_fen)
+      setPhase({ kind: 'opponent' })
+      later(() => {
+        setFen(a.fen)
+        setLastMove(a.opponent_move)
+        setPhase({ kind: 'turn' })
+      })
+    } catch (err) {
+      setPhase({
+        kind: 'error',
+        message: err instanceof ApiError ? err.message : 'Không kết nối được máy chủ',
+      })
+    }
+  }, [later])
+
+  useEffect(() => {
+    void loadNext()
+  }, [loadNext])
+
+  /** Đi thử nước trên bàn cờ phía trình duyệt; trả về UCI nếu hợp lệ. */
+  function localMove(from: Square, to: Square, promotion?: string): string | null {
+    const game = new Chess(fen)
+    try {
+      const m = game.move({ from, to, promotion })
+      return m.from + m.to + (m.promotion ?? '')
+    } catch {
+      return null
+    }
+  }
+
+  async function submit(uci: string) {
+    if (!attempt) return
+    const before = fen
+    setFen(new Chess(fen).move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] }).after)
+    setLastMove(uci)
+    setArrow([])
+    setPhase({ kind: 'sending' })
+    try {
+      const r = await api.playMove(attempt.attempt_id, uci)
+      if (r.verdict === 'wrong') {
+        setFen(before)
+        setLastMove(null)
+        setFailed(true)
+        if (r.expected_move) setArrow([[...squares(r.expected_move), 'rgb(47, 111, 78)']])
+        setFeedback({ tone: 'bad', text: 'Chưa đúng. Mũi tên chỉ nước đúng — đi tiếp lời giải nhé.' })
+        setPhase({ kind: 'turn' })
+        return
+      }
+      if (r.completed) {
+        setFen(r.fen)
+        const correct = r.correct === true
+        setFeedback(
+          correct
+            ? { tone: 'good', text: 'Chính xác! Bạn đã giải xong bài này.' }
+            : { tone: 'info', text: 'Đã đi hết lời giải. Lần giải này được tính là sai.' },
+        )
+        setPhase({ kind: 'done', correct })
+        return
+      }
+      setFeedback({ tone: 'good', text: failed ? 'Đúng nước lời giải, đi tiếp.' : 'Đúng! Đi tiếp.' })
+      setPhase({ kind: 'opponent' })
+      later(() => {
+        setFen(r.fen)
+        setLastMove(r.opponent_move)
+        setPhase({ kind: 'turn' })
+      })
+    } catch (err) {
+      setFen(before)
+      setLastMove(null)
+      setFeedback({ tone: 'bad', text: err instanceof ApiError ? err.message : 'Mất kết nối máy chủ' })
+      setPhase({ kind: 'turn' })
+    }
+  }
+
+  function onPieceDrop(from: Square, to: Square): boolean {
+    if (phase.kind !== 'turn') return false
+    const uci = localMove(from, to)
+    if (!uci) return false
+    void submit(uci)
+    return true
+  }
+
+  function onPromotionPieceSelect(piece?: PromotionPieceOption, from?: Square, to?: Square): boolean {
+    if (phase.kind !== 'turn' || !piece || !from || !to) return false
+    const uci = localMove(from, to, piece[1].toLowerCase())
+    if (!uci) return false
+    void submit(uci)
+    return true
+  }
+
+  function isDraggablePiece({ piece }: { piece: Piece }): boolean {
+    return phase.kind === 'turn' && attempt !== null && piece[0] === attempt.player_color[0]
+  }
+
+  if (phase.kind === 'error') {
+    return (
+      <section className="trainer">
+        <p className="error" role="alert">
+          {phase.message}
+        </p>
+        <button type="button" onClick={() => void loadNext()}>
+          Thử lại
+        </button>
+      </section>
+    )
+  }
+
+  const toMove = attempt?.player_color === 'black' ? 'Đen' : 'Trắng'
+  return (
+    <section className="trainer">
+      <div className="board">
+        <Chessboard
+          position={fen}
+          boardOrientation={attempt?.player_color ?? 'white'}
+          onPieceDrop={onPieceDrop}
+          onPromotionPieceSelect={onPromotionPieceSelect}
+          isDraggablePiece={isDraggablePiece}
+          customSquareStyles={highlight(lastMove)}
+          customArrows={arrow}
+          animationDuration={250}
+        />
+      </div>
+      <aside className="panel">
+        {attempt && (
+          <p className="meta">
+            Bài <code>{attempt.puzzle_id}</code> · rating {attempt.rating}
+          </p>
+        )}
+        <p className="turn">
+          {phase.kind === 'loading' && 'Đang lấy bài tập…'}
+          {phase.kind === 'opponent' && 'Đối thủ đang đi…'}
+          {(phase.kind === 'turn' || phase.kind === 'sending') && `${toMove} đi. Tìm nước tốt nhất.`}
+          {phase.kind === 'done' && (phase.correct ? 'Lần giải: đúng' : 'Lần giải: sai')}
+        </p>
+        {feedback && <p className={`feedback ${feedback.tone}`}>{feedback.text}</p>}
+        {phase.kind === 'done' && (
+          <button type="button" onClick={() => void loadNext()}>
+            Bài tiếp theo
+          </button>
+        )}
+      </aside>
+    </section>
+  )
+}

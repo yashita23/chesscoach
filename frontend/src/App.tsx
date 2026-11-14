@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { api, ApiError, type Player } from './api'
+import PuzzleTrainer from './PuzzleTrainer'
 
 type Mode = 'login' | 'register'
 
@@ -118,8 +119,8 @@ function Home({ player, onLogout }: { player: Player; onLogout: () => void }) {
           </button>
         </span>
       </header>
-      <main className="center">
-        <p>Xin chào, {player.display_name}. Buổi luyện sẽ xuất hiện ở đây.</p>
+      <main className="content">
+        <PuzzleTrainer />
       </main>
     </>
   )

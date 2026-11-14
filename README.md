@@ -9,12 +9,30 @@ Cần [uv](https://docs.astral.sh/uv/) và Node.js 20+.
 ```sh
 npm install        # cài concurrently ở thư mục gốc
 npm run setup      # cài phụ thuộc backend (uv) và frontend (npm)
+cp backend/.env.example backend/.env   # rồi điền LICHESS_API_TOKEN
+```
+
+Nạp kho bài tập Lichess (CC0, khoảng 300 MB tải về, 6,2 triệu bài) một lần:
+
+```sh
+cd backend
+mkdir -p data/raw
+curl -o data/raw/lichess_db_puzzle.csv.zst https://database.lichess.org/lichess_db_puzzle.csv.zst
+uv run python -m chesscoach.puzzle_import full data/raw/lichess_db_puzzle.csv.zst data/puzzles.parquet
+cd ..
+```
+
+Sau đó chạy:
+
+```sh
 npm run dev        # chạy FastAPI ở :8000 và Vite ở :5173
 ```
 
 Mở http://localhost:5173. Vite chuyển các request `/api` sang FastAPI, nên cookie phiên đăng nhập luôn cùng origin với trang.
 
-Dữ liệu lưu trong `backend/data/chesscoach.db`. Muốn dùng file khác thì đặt biến `CHESSCOACH_DATABASE_URL`.
+Dữ liệu lưu trong `backend/data/` (đã nằm trong `.gitignore`): `chesscoach.db` cho người chơi và lần giải, `puzzles.parquet` cho kho bài tập. Muốn đổi đường dẫn thì xem `backend/.env.example`.
+
+Test dùng bản mẫu 300 bài trong `backend/tests/fixtures/puzzles_sample.csv`, nên không cần nạp kho đầy đủ. Bản mẫu được sinh bằng `puzzle_import sample` và tái lập được: cùng seed thì ra đúng bộ bài đó.
 
 ## Kiểm thử
 

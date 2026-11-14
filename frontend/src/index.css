@@ -126,3 +126,62 @@ button.link {
   align-items: center;
   gap: 8px;
 }
+
+.content {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+
+.trainer {
+  display: grid;
+  grid-template-columns: minmax(0, 560px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+@media (max-width: 760px) {
+  .trainer {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.board {
+  width: 100%;
+  max-width: 560px;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.panel p {
+  margin: 0;
+}
+
+.meta {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.turn {
+  font-weight: 600;
+}
+
+.feedback.good {
+  color: var(--accent);
+}
+
+.feedback.bad {
+  color: var(--error);
+}
+
+.feedback.info {
+  color: var(--muted);
+}

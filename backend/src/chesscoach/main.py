@@ -3,17 +3,27 @@
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 from chesscoach.app import create_app
 
-_DEFAULT_DB = Path(__file__).resolve().parents[2] / "data" / "chesscoach.db"
+BACKEND_DIR = Path(__file__).resolve().parents[2]
+DATA_DIR = BACKEND_DIR / "data"
+
+load_dotenv(BACKEND_DIR / ".env")
 
 
 def _database_url() -> str:
     url = os.environ.get("CHESSCOACH_DATABASE_URL")
     if url:
         return url
-    _DEFAULT_DB.parent.mkdir(parents=True, exist_ok=True)
-    return f"sqlite:///{_DEFAULT_DB.as_posix()}"
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    return f"sqlite:///{(DATA_DIR / 'chesscoach.db').as_posix()}"
 
 
-app = create_app(database_url=_database_url())
+def _puzzle_catalog() -> Path:
+    path = Path(os.environ.get("CHESSCOACH_PUZZLE_CATALOG", DATA_DIR / "puzzles.parquet"))
+    return path if path.is_absolute() else BACKEND_DIR / path
+
+
+app = create_app(database_url=_database_url(), puzzle_catalog=_puzzle_catalog())

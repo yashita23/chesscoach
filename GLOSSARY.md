@@ -1,0 +1,88 @@
+# Chess Coach
+
+Hệ gợi ý bài tập cờ cho người chơi nghiệp dư, dựa trên mô hình năng lực của từng người; mục tiêu là người chơi tiến bộ, không phải người chơi thích.
+
+## Ngôn ngữ
+
+### Nội dung luyện tập
+
+**Bài tập**:
+Một thế cờ trong kho Lichess kèm lời giải, độ khó và các chủ đề; đây là item mà hệ thống gợi ý.
+_Tránh_: puzzle, câu đố, bài
+
+**Chủ đề**:
+Nhãn chiến thuật hoặc giai đoạn mà Lichess gắn cho bài tập (khoảng 60 loại, ví dụ `fork`, `backRankMate`, `rookEndgame`).
+_Tránh_: theme, tag
+
+**Kỹ năng**:
+Một trong 15–20 nhóm chủ đề mà mô hình năng lực theo dõi riêng; mỗi chủ đề thuộc đúng một kỹ năng.
+_Tránh_: skill, năng lực con, mảng
+
+**Bản đồ kỹ năng**:
+Bảng duy nhất gán mỗi chủ đề vào một kỹ năng, dùng chung cho cả bài tập lẫn lỗi trong ván.
+
+**Rating bài tập**:
+Độ khó của một bài tập theo thang Glicko-2 của Lichess.
+_Tránh_: Elo của bài, độ khó (khi cần con số)
+
+**Lần giải**:
+Một lần người chơi làm một bài tập. Lần giải chỉ đúng khi mọi nước đều đúng ngay lần đầu; một nước được tính đúng nếu trùng lời giải hoặc chiếu hết.
+_Tránh_: attempt, lượt làm
+
+### Năng lực người chơi
+
+**Người chơi**:
+Một người dùng của hệ thống, đăng nhập bằng email, có một năng lực và một hồ sơ điểm yếu duy nhất.
+_Tránh_: user, học viên, account
+
+**Tài khoản liên kết**:
+Tài khoản Lichess hoặc Chess.com mà người chơi gắn vào hồ sơ để hệ thống lấy ván; mỗi người chơi có 0–2 tài khoản liên kết, và lỗi từ mọi tài khoản dồn vào cùng điểm yếu.
+_Tránh_: tài khoản (không rõ loại), username
+
+**Nhóm tham chiếu**:
+Những người chơi có năng lực chung trong cùng một dải 200 điểm; dùng để làm trơn điểm yếu và so sánh trong giải thích.
+_Tránh_: người cùng Elo, peer group
+
+**Năng lực**:
+Ước lượng θ về sức giải bài của một người chơi, gồm năng lực chung và độ lệch theo từng kỹ năng, nằm cùng thang với rating bài tập.
+_Tránh_: Elo (khi nói về θ), điểm, level
+
+**Rating ván**:
+Rating của người chơi trên Lichess hoặc Chess.com khi chơi ván; chỉ dùng làm tiên nghiệm thô cho năng lực.
+_Tránh_: Elo (không nói rõ nền tảng)
+
+**Bài kiểm tra đầu vào**:
+Bộ 12 bài tập người chơi mới làm để hiệu chỉnh năng lực ban đầu.
+_Tránh_: placement test, bài test
+
+### Gợi ý
+
+**Buổi luyện**:
+Danh sách top-K bài tập được gợi ý cho lần luyện tiếp theo, mỗi bài kèm lý do; đây là đầu ra chính của hệ thống.
+_Tránh_: session, bài học
+
+**Bài ôn lại**:
+Một bài tập mới, chưa làm bao giờ, thuộc kỹ năng mà người chơi vừa giải sai gần đây. Hệ thống không bao giờ đưa lại đúng một bài đã làm.
+_Tránh_: bài làm lại, flashcard
+
+**Kỹ năng tiên quyết**:
+Kỹ năng nên vững trước khi luyện một kỹ năng khác. Kỹ năng tiên quyết chưa vững chỉ làm giảm ưu tiên của kỹ năng sau, không khóa nó.
+_Tránh_: điều kiện mở khóa
+
+**Lộ trình**:
+Dự kiến các buổi luyện trong 14 ngày tới, tính lại sau mỗi buổi; chỉ để xem trước, không phải kế hoạch cố định.
+_Tránh_: giáo trình, kế hoạch học
+
+### Ván cờ và điểm yếu
+
+**Lỗi**:
+Một nước đi của người chơi trong ván thật (Lichess hoặc Chess.com) làm xác suất thắng tụt mạnh, từ mức mistake trở lên. Lỗi do bị đối thủ khai thác và lỗi bỏ lỡ cơ hội của mình được tính như nhau.
+_Tránh_: sai lầm, blunder (khi nói chung)
+
+**Motif**:
+Chủ đề được nhận diện cho một lỗi bằng bộ gắn chủ đề; motif đi qua bản đồ kỹ năng như mọi chủ đề khác. Lỗi không nhận diện được motif thuộc kỹ năng "bỏ lỡ chiến thuật".
+_Tránh_: pattern, mẫu
+
+**Điểm yếu**:
+Tỉ lệ lỗi mỗi ván của một người ở một kỹ năng, đã làm trơn về mức trung bình của người cùng Elo.
+_Tránh_: lỗ hổng, weakness score

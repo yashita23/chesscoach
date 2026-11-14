@@ -36,7 +36,7 @@ def player_color(puzzle: Puzzle) -> chess.Color:
 
 
 def judge(puzzle: Puzzle, ply: int, uci: str) -> Verdict:
-    """Chấm nước `uci` của người giải khi lượt hiện tại là `puzzle.moves[ply]`."""
+    """Chấm nước `uci` của người chơi khi lượt hiện tại là `puzzle.moves[ply]`."""
     board = board_at(puzzle, ply)
     try:
         move = chess.Move.from_uci(uci)
@@ -49,11 +49,20 @@ def judge(puzzle: Puzzle, ply: int, uci: str) -> Verdict:
     after = board.copy(stack=False)
     after.push(move)
     if move.uci() != expected and not after.is_checkmate():
-        return Verdict(False, False, None, ply, board.fen(), expected)
+        return Verdict(
+            accepted=False, puzzle_completed=False, opponent_move=None,
+            next_ply=ply, fen=board.fen(), expected_move=expected,
+        )
 
     completed = after.is_checkmate() or ply + 1 >= len(puzzle.moves)
     if completed:
-        return Verdict(True, True, None, ply + 1, after.fen(), None)
+        return Verdict(
+            accepted=True, puzzle_completed=True, opponent_move=None,
+            next_ply=ply + 1, fen=after.fen(), expected_move=None,
+        )
     reply = puzzle.moves[ply + 1]
     after.push_uci(reply)
-    return Verdict(True, False, reply, ply + 2, after.fen(), None)
+    return Verdict(
+        accepted=True, puzzle_completed=False, opponent_move=reply,
+        next_ply=ply + 2, fen=after.fen(), expected_move=None,
+    )

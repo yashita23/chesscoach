@@ -16,5 +16,6 @@ def create_app(database_url: str, puzzle_catalog: Path) -> FastAPI:
     app.state.session_factory = sessionmaker(engine, expire_on_commit=False)
     app.state.puzzle_catalog = PuzzleCatalog(puzzle_catalog)
     app.include_router(auth.auth_router)
+    app.include_router(auth.player_router)
     app.include_router(attempts.router)
     return app

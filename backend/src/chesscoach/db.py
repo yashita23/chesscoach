@@ -36,7 +36,9 @@ class Attempt(Base):
     """Lần giải: một lần người chơi làm một bài tập.
 
     Nhãn `correct` được chốt ở nước sai đầu tiên hoặc khi giải xong, và không đổi
-    khi người chơi đi tiếp lời giải.
+    khi người chơi đi tiếp lời giải. `solve_time_ms` tính từ lúc mở lần giải tới lúc
+    chốt nhãn (gồm cả thời gian diễn nước của đối thủ trên giao diện). Mỗi người chơi
+    có tối đa một lần giải cho mỗi bài tập.
     """
 
     __tablename__ = "attempts"

@@ -15,7 +15,7 @@ from pathlib import Path
 
 import duckdb
 
-from chesscoach.puzzles import source_sql, sql_path
+from chesscoach.puzzles import POPULAR, source_sql, sql_path
 
 
 def import_full(source_csv: Path, target_parquet: Path) -> int:
@@ -30,12 +30,12 @@ def import_full(source_csv: Path, target_parquet: Path) -> int:
 
 
 def write_sample(source: Path, target_csv: Path, size: int, seed: int) -> int:
-    """Lấy `size` bài ngẫu nhiên (tái lập theo `seed`) trong số bài đủ phổ biến."""
+    """Lấy `size` bài tập ngẫu nhiên (tái lập theo `seed`) trong số bài tập đủ phổ biến."""
     target_csv.parent.mkdir(parents=True, exist_ok=True)
     reader = source_sql(source)
     con = duckdb.connect()
     con.execute(
-        f"COPY (SELECT * FROM (SELECT * FROM {reader} WHERE Popularity >= 80 AND NbPlays >= 500) "
+        f"COPY (SELECT * FROM (SELECT * FROM {reader} WHERE {POPULAR}) "
         f"USING SAMPLE reservoir({size} ROWS) REPEATABLE ({seed}) ORDER BY PuzzleId) "
         f"TO '{sql_path(target_csv)}' (HEADER, DELIMITER ',')"
     )
@@ -59,7 +59,7 @@ def main() -> None:
     if args.command == "full":
         print(f"Đã nạp {import_full(args.source, args.target):,} bài tập vào {args.target}")
     else:
-        print(f"Đã ghi {write_sample(args.source, args.target, args.size, args.seed)} bài vào {args.target}")
+        print(f"Đã ghi {write_sample(args.source, args.target, args.size, args.seed)} bài tập vào {args.target}")
 
 
 if __name__ == "__main__":

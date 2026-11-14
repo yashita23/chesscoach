@@ -4,16 +4,16 @@ from datetime import UTC, datetime
 from typing import Annotated, Literal
 
 import chess
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, HTTPException, Request, Response, status
 from pydantic import BaseModel
 from sqlalchemy import select
 
-from chesscoach.auth import CurrentPlayer, Db, player_router
+from chesscoach.auth import CurrentPlayer, Db, player_api_router
 from chesscoach.db import Attempt
 from chesscoach.puzzles import Puzzle, PuzzleCatalog
 from chesscoach.solving import IllegalMove, board_at, judge, player_color
 
-router = player_router
+router = player_api_router()
 
 
 def get_catalog(request: Request) -> PuzzleCatalog:
@@ -41,6 +41,14 @@ class NextPuzzleOut(BaseModel):
 
 @router.get("/puzzles/next")
 def next_puzzle(player: CurrentPlayer, db: Db, catalog: Catalog) -> NextPuzzleOut:
+    """Bài tập đang làm dở (chưa có nhãn) nếu có; nếu không thì một bài tập chưa làm."""
+    unfinished = db.scalars(
+        select(Attempt.puzzle_id)
+        .where(Attempt.player_id == player.id, Attempt.correct.is_(None))
+        .order_by(Attempt.started_at.desc())
+    ).first()
+    if unfinished is not None:
+        return NextPuzzleOut(puzzle_id=unfinished)
     done = db.scalars(select(Attempt.puzzle_id).where(Attempt.player_id == player.id)).all()
     puzzle = catalog.random_excluding(done)
     if puzzle is None:
@@ -63,21 +71,39 @@ class AttemptOut(BaseModel):
     player_color: Literal["white", "black"]
 
 
-@router.post("/attempts", status_code=status.HTTP_201_CREATED)
-def start_attempt(body: StartRequest, player: CurrentPlayer, db: Db, catalog: Catalog) -> AttemptOut:
-    puzzle = _puzzle_or_404(catalog, body.puzzle_id)
-    attempt = Attempt(player_id=player.id, puzzle_id=puzzle.id, started_at=_now())
-    db.add(attempt)
-    db.commit()
+def _attempt_out(attempt: Attempt, puzzle: Puzzle) -> AttemptOut:
+    # next_ply luôn trỏ vào lượt của người chơi; nước ngay trước đó là nước vừa đi của đối thủ.
+    last_opponent_ply = attempt.next_ply - 1
     return AttemptOut(
         attempt_id=attempt.id,
         puzzle_id=puzzle.id,
         rating=puzzle.rating,
-        start_fen=puzzle.fen,
-        opponent_move=puzzle.moves[0],
-        fen=board_at(puzzle, 1).fen(),
+        start_fen=board_at(puzzle, last_opponent_ply).fen(),
+        opponent_move=puzzle.moves[last_opponent_ply],
+        fen=board_at(puzzle, attempt.next_ply).fen(),
         player_color="white" if player_color(puzzle) == chess.WHITE else "black",
     )
+
+
+@router.post("/attempts", status_code=status.HTTP_201_CREATED)
+def start_attempt(
+    body: StartRequest, player: CurrentPlayer, db: Db, catalog: Catalog, response: Response
+) -> AttemptOut:
+    """Mở lần giải cho một bài tập. Lần giải đang dở thì mở lại (200); bài tập đã có nhãn thì 409."""
+    puzzle = _puzzle_or_404(catalog, body.puzzle_id)
+    existing = db.scalars(
+        select(Attempt).where(Attempt.player_id == player.id, Attempt.puzzle_id == puzzle.id)
+    ).first()
+    if existing is not None:
+        if existing.correct is not None:
+            raise HTTPException(status.HTTP_409_CONFLICT, "Bạn đã làm bài tập này")
+        response.status_code = status.HTTP_200_OK
+        return _attempt_out(existing, puzzle)
+
+    attempt = Attempt(player_id=player.id, puzzle_id=puzzle.id, started_at=_now())
+    db.add(attempt)
+    db.commit()
+    return _attempt_out(attempt, puzzle)
 
 
 class AttemptSummaryOut(BaseModel):

@@ -22,6 +22,9 @@ CSV_COLUMNS = {
     "DailyDate": "BIGINT",
 }
 
+# Bài tập đủ phổ biến để đưa cho người chơi (lọc bài lỗi hoặc gượng ép).
+POPULAR = "Popularity >= 80 AND NbPlays >= 500"
+
 _SELECT = (
     "PuzzleId, FEN, Moves, Rating, RatingDeviation, Popularity, NbPlays, Themes, GameUrl, OpeningTags"
 )
@@ -92,12 +95,12 @@ class PuzzleCatalog:
         return None if row is None else _puzzle(row)
 
     def random_excluding(self, exclude: Collection[str]) -> Puzzle | None:
-        """Một bài phổ biến bất kỳ chưa nằm trong `exclude`; tạm dùng cho tới khi có buổi luyện."""
+        """Một bài tập phổ biến bất kỳ chưa nằm trong `exclude`; tạm dùng cho tới khi có buổi luyện."""
         row = (
             self._con.cursor()
             .execute(
                 f"SELECT {_SELECT} FROM puzzles "
-                "WHERE Popularity >= 80 AND NbPlays >= 500 AND NOT list_contains(?, PuzzleId) "
+                f"WHERE {POPULAR} AND NOT list_contains(?, PuzzleId) "
                 "ORDER BY random() LIMIT 1",
                 [list(exclude)],
             )

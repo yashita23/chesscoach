@@ -84,8 +84,17 @@ CurrentPlayer = Annotated[Player, Depends(current_player)]
 
 # Route công khai: chỉ đăng ký, đăng nhập, đăng xuất.
 auth_router = APIRouter(prefix="/api/auth")
-# Mọi API của người chơi gắn vào đây; chưa đăng nhập thì bị chặn ở mức router.
-player_router = APIRouter(prefix="/api", dependencies=[Depends(current_player)])
+
+
+def player_api_router() -> APIRouter:
+    """Router cho API của người chơi: chưa đăng nhập thì bị chặn ở mức router.
+
+    Mọi module có API của người chơi đều tạo router bằng hàm này, để route mới không bị bỏ ngỏ.
+    """
+    return APIRouter(prefix="/api", dependencies=[Depends(current_player)])
+
+
+player_router = player_api_router()
 
 
 @auth_router.post("/register", status_code=status.HTTP_201_CREATED)

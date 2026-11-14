@@ -10,7 +10,7 @@ type Phase =
   | { kind: 'loading' }
   | { kind: 'error'; message: string }
   | { kind: 'opponent' } // đang chờ diễn nước của đối thủ
-  | { kind: 'turn' } // tới lượt người giải
+  | { kind: 'turn' } // tới lượt người chơi
   | { kind: 'sending' }
   | { kind: 'done'; correct: boolean }
 
@@ -88,7 +88,8 @@ export default function PuzzleTrainer() {
   async function submit(uci: string) {
     if (!attempt) return
     const before = fen
-    setFen(new Chess(fen).move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] }).after)
+    const [from, to] = squares(uci)
+    setFen(new Chess(fen).move({ from, to, promotion: uci[4] }).after)
     setLastMove(uci)
     setArrow([])
     setPhase({ kind: 'sending' })
@@ -108,7 +109,7 @@ export default function PuzzleTrainer() {
         const correct = r.correct === true
         setFeedback(
           correct
-            ? { tone: 'good', text: 'Chính xác! Bạn đã giải xong bài này.' }
+            ? { tone: 'good', text: 'Chính xác! Bạn đã giải xong bài tập này.' }
             : { tone: 'info', text: 'Đã đi hết lời giải. Lần giải này được tính là sai.' },
         )
         setPhase({ kind: 'done', correct })
@@ -129,20 +130,19 @@ export default function PuzzleTrainer() {
     }
   }
 
-  function onPieceDrop(from: Square, to: Square): boolean {
+  /** Kéo thả thường và chọn quân phong cấp đều đi qua đây; trả về để bàn cờ giữ hay bật quân lại. */
+  function tryMove(from: Square, to: Square, promotion?: string): boolean {
     if (phase.kind !== 'turn') return false
-    const uci = localMove(from, to)
+    const uci = localMove(from, to, promotion)
     if (!uci) return false
     void submit(uci)
     return true
   }
 
   function onPromotionPieceSelect(piece?: PromotionPieceOption, from?: Square, to?: Square): boolean {
-    if (phase.kind !== 'turn' || !piece || !from || !to) return false
-    const uci = localMove(from, to, piece[1].toLowerCase())
-    if (!uci) return false
-    void submit(uci)
-    return true
+    return piece !== undefined && from !== undefined && to !== undefined
+      ? tryMove(from, to, piece[1].toLowerCase())
+      : false
   }
 
   function isDraggablePiece({ piece }: { piece: Piece }): boolean {
@@ -169,7 +169,7 @@ export default function PuzzleTrainer() {
         <Chessboard
           position={fen}
           boardOrientation={attempt?.player_color ?? 'white'}
-          onPieceDrop={onPieceDrop}
+          onPieceDrop={(from, to) => tryMove(from, to)}
           onPromotionPieceSelect={onPromotionPieceSelect}
           isDraggablePiece={isDraggablePiece}
           customSquareStyles={highlight(lastMove)}
@@ -180,7 +180,7 @@ export default function PuzzleTrainer() {
       <aside className="panel">
         {attempt && (
           <p className="meta">
-            Bài <code>{attempt.puzzle_id}</code> · rating {attempt.rating}
+            Bài tập <code>{attempt.puzzle_id}</code> · rating {attempt.rating}
           </p>
         )}
         <p className="turn">
@@ -192,7 +192,7 @@ export default function PuzzleTrainer() {
         {feedback && <p className={`feedback ${feedback.tone}`}>{feedback.text}</p>}
         {phase.kind === 'done' && (
           <button type="button" onClick={() => void loadNext()}>
-            Bài tiếp theo
+            Bài tập tiếp theo
           </button>
         )}
       </aside>

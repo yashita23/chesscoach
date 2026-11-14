@@ -12,7 +12,7 @@ npm run setup      # cài phụ thuộc backend (uv) và frontend (npm)
 cp backend/.env.example backend/.env   # rồi điền LICHESS_API_TOKEN
 ```
 
-Nạp kho bài tập Lichess (CC0, khoảng 300 MB tải về, 6,2 triệu bài) một lần:
+Nạp kho bài tập Lichess (CC0, khoảng 300 MB tải về, 6,2 triệu bài tập) một lần:
 
 ```sh
 cd backend
@@ -32,7 +32,7 @@ Mở http://localhost:5173. Vite chuyển các request `/api` sang FastAPI, nên
 
 Dữ liệu lưu trong `backend/data/` (đã nằm trong `.gitignore`): `chesscoach.db` cho người chơi và lần giải, `puzzles.parquet` cho kho bài tập. Muốn đổi đường dẫn thì xem `backend/.env.example`.
 
-Test dùng bản mẫu 300 bài trong `backend/tests/fixtures/puzzles_sample.csv`, nên không cần nạp kho đầy đủ. Bản mẫu được sinh bằng `puzzle_import sample` và tái lập được: cùng seed thì ra đúng bộ bài đó.
+Test dùng bản mẫu 300 bài tập trong `backend/tests/fixtures/puzzles_sample.csv`, nên không cần nạp kho đầy đủ. Bản mẫu được sinh bằng `puzzle_import sample` và tái lập được: cùng seed thì ra đúng bộ bài tập đó.
 
 ## Kiểm thử
 

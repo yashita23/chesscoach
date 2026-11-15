@@ -105,11 +105,15 @@ class Observation:
     correct: bool
 
 
+def _sigmoid(z: float) -> float:
+    return 1 / (1 + math.exp(-z))
+
+
 def predict(ability: Ability, skills: Iterable[str], rating: float) -> float:
     """Xác suất giải đúng một bài tập có các kỹ năng `skills` và rating `rating`."""
     ks = list(skills)
     deviation = sum(ability.skill_deviation(k) for k in ks) / len(ks) if ks else 0.0
-    return 1 / (1 + math.exp(-(ability.theta + deviation - rating) / ability.config.scale))
+    return _sigmoid((ability.theta + deviation - rating) / ability.config.scale)
 
 
 def update(ability: Ability, obs: Observation) -> Ability:
@@ -152,13 +156,16 @@ def _logit(p: float) -> float:
 
 @dataclass(frozen=True)
 class ProbabilityCalibration:
-    """Hiệu chỉnh xác suất của mô hình: p' = σ(a + b·logit p). Mặc định (0, 1) là không đổi gì."""
+    """Hiệu chỉnh xác suất của mô hình: p' = σ(a + b·logit p). Mặc định (0, 1) là không đổi gì.
+
+    Bản Python thuần của `experiments.metrics.Platt` (numpy), vì app không dùng numpy lúc chạy.
+    """
 
     a: float = 0.0
     b: float = 1.0
 
     def apply(self, p: float) -> float:
-        return 1 / (1 + math.exp(-(self.a + self.b * _logit(p))))
+        return _sigmoid(self.a + self.b * _logit(p))
 
     @classmethod
     def fit(
@@ -175,7 +182,7 @@ class ProbabilityCalibration:
             ga, gb = -prior_weight * a, -prior_weight * (b - 1)
             haa, hab, hbb = prior_weight, 0.0, prior_weight
             for x, y in zip(xs, ys, strict=True):
-                q = 1 / (1 + math.exp(-(a + b * x)))
+                q = _sigmoid(a + b * x)
                 w = q * (1 - q)
                 ga += y - q
                 gb += (y - q) * x

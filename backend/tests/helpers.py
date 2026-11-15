@@ -17,3 +17,10 @@ def play(client: TestClient, attempt_id: int, uci: str) -> dict[str, Any]:
     assert r.status_code == 200, r.text
     body: dict[str, Any] = r.json()
     return body
+
+
+def register_new_player(client: TestClient, email: str) -> None:
+    """Đăng xuất người chơi hiện tại (nếu có) rồi đăng ký và đăng nhập một người chơi mới."""
+    client.cookies.clear()
+    r = client.post("/api/auth/register", json={"email": email, "password": "matkhau-dai-du", "display_name": "X"})
+    assert r.status_code == 201, r.text

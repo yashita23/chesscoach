@@ -8,7 +8,7 @@ chỉ được đo một lần, ở cuối, cho cấu hình đã chọn.
 Ba giai đoạn:
 1. Tinh chỉnh AbilityConfig (thang s, K, độ co) của module năng lực trong app. Tiêu chí: log-loss trên validation
    sau hiệu chỉnh Platt (fit trên phần train còn lại), vì app sẽ có bước hiệu chỉnh riêng (#22).
-2. Thêm độ lệch độ khó δ cho từng bài tập, cập nhật trực tuyến như θ (Elo hai chiều): bài tập bị giải đúng nhiều
+2. Thêm độ lệch rating δ cho từng bài tập, cập nhật trực tuyến như θ (Elo hai chiều): bài tập bị giải đúng nhiều
    hơn dự đoán thì dễ đi. Mọi lần giải chạy theo thứ tự thời gian chung, nên δ chỉ học từ lần giải trước đó.
 3. Đo trên phần test: E1 (mặc định) so với cấu hình đã chỉnh, có và không có δ, thô và sau Platt.
 """
@@ -21,6 +21,7 @@ import sys
 import time
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict, dataclass, replace
+from typing import Any
 
 import duckdb
 import numpy as np
@@ -32,13 +33,15 @@ from chesscoach.experiments.metrics import FloatArray, Platt, Scores, score
 from chesscoach.experiments.stanford import SPLIT_DIR
 
 VALIDATION_FRACTION = 0.2
-# Nhân thang s của Elo (400/ln 10). ×1 là thang chuẩn mà app dùng với rating Lichess.
+# Kết quả đánh giá một cấu hình, dạng ghi được ra JSON.
+Result = dict[str, Any]
+# Nhân thang s của Elo (400/ln 10). ×1 là thang chuẩn của công thức Elo.
 SCALE_MULTIPLIERS = (1.0, 2.0, 3.0, 4.0, 5.0)
 
 
 @dataclass(frozen=True)
 class ItemConfig:
-    """Độ lệch độ khó theo bài tập: δ += −K(n)·(y − p), dùng δ·n/(n + shrink) khi dự đoán."""
+    """Độ lệch rating theo bài tập: δ += −K(n)·(y − p), dùng δ·n/(n + shrink) khi dự đoán."""
 
     k_start: float
     k_min: float
@@ -81,8 +84,12 @@ def load_data() -> Data:
     return Data(attempts, order, fit_rows=train & ~val, val_rows=val)
 
 
-def run(data: Data, config: AbilityConfig, item: ItemConfig | None) -> FloatArray:
-    """Dự đoán trực tuyến mọi lần giải theo thứ tự thời gian chung."""
+def run(data: Data, config: AbilityConfig, item: ItemConfig | None, learn_from_test: bool = True) -> FloatArray:
+    """Dự đoán trực tuyến mọi lần giải theo thứ tự thời gian chung.
+
+    `learn_from_test=False`: δ của bài tập không học từ lần giải thuộc phần test. Bắt buộc khi tinh chỉnh, vì lần
+    giải test của người chơi khác có thể xảy ra trước lần giải validation, khiến nhãn test lọt vào việc chọn cấu hình.
+    """
     a = data.attempts
     p = np.empty(len(a))
     abilities: dict[int, Ability] = {}
@@ -98,7 +105,7 @@ def run(data: Data, config: AbilityConfig, item: ItemConfig | None) -> FloatArra
         p[i] = predict(ability, a.skills[i], rating)
         y = bool(a.is_correct[i])
         abilities[user] = update(ability, Observation(a.skills[i], rating, y))
-        if item is not None:
+        if item is not None and (learn_from_test or not a.is_test[i]):
             n = seen.get(puzzle, 0)
             delta[puzzle] = delta.get(puzzle, 0.0) - item.k(n) * ((1.0 if y else 0.0) - p[i])
             seen[puzzle] = n + 1
@@ -113,10 +120,10 @@ def _init_worker() -> None:
     _DATA = load_data()
 
 
-def _evaluate(job: tuple[AbilityConfig, ItemConfig | None]) -> dict[str, object]:
+def _evaluate(job: tuple[AbilityConfig, ItemConfig | None]) -> Result:
     assert _DATA is not None
     config, item = job
-    p = run(_DATA, config, item)
+    p = run(_DATA, config, item, learn_from_test=False)
     y = _DATA.attempts.is_correct
     platt = Platt.fit(p[_DATA.fit_rows], y[_DATA.fit_rows])
     raw = score(p[_DATA.val_rows], y[_DATA.val_rows])
@@ -131,12 +138,12 @@ def _evaluate(job: tuple[AbilityConfig, ItemConfig | None]) -> dict[str, object]
     }
 
 
-def search(jobs: list[tuple[AbilityConfig, ItemConfig | None]], workers: int) -> list[dict[str, object]]:
+def search(jobs: list[tuple[AbilityConfig, ItemConfig | None]], workers: int) -> list[Result]:
     started = time.time()
     with ProcessPoolExecutor(max_workers=workers, initializer=_init_worker) as pool:
         results = list(pool.map(_evaluate, jobs))
     print(f"  {len(jobs)} cấu hình, {time.time() - started:.0f}s")
-    return sorted(results, key=lambda r: float(r["val_log_loss"]))  # type: ignore[arg-type]
+    return sorted(results, key=lambda r: float(r["val_log_loss"]))
 
 
 def player_grid() -> list[tuple[AbilityConfig, ItemConfig | None]]:
@@ -198,7 +205,7 @@ def plot(results_path: str) -> None:
     variants = [
         ("E1: mặc định", E1_CONFIG, None, "#2a78d6", "o"),
         ("Đã tinh chỉnh", config, None, "#eb6834", "s"),
-        ("Đã tinh chỉnh + độ khó bài tập", config, item, "#1baf7a", "^"),
+        ("Đã tinh chỉnh + độ lệch rating bài tập", config, item, "#1baf7a", "^"),
     ]
     fig, ax = plt.subplots(figsize=(7.4, 5.6), dpi=150)
     ax.plot([0, 1], [0, 1], color="#9aa0a6", linestyle=(0, (4, 4)), linewidth=1.5, label="Hiệu chỉnh hoàn hảo")
@@ -235,40 +242,48 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument("--workers", type=int, default=14)
     parser.add_argument("--plot", action="store_true", help="chỉ vẽ biểu đồ từ e1b-results.json đã có")
+    parser.add_argument("--reuse-stage1", action="store_true", help="dùng lại giai đoạn 1 đã lưu (không bị ảnh hưởng bởi δ)")
     args = parser.parse_args()
     if args.plot:
         plot(str(DOCS_DIR / "e1b-results.json"))
         return
 
-    print("Giai đoạn 1: tinh chỉnh AbilityConfig trên validation")
-    stage1 = search(player_grid(), args.workers)
-    best_config = AbilityConfig(**stage1[0]["config"])  # type: ignore[arg-type]
+    results_path = DOCS_DIR / "e1b-results.json"
+    if args.reuse_stage1:
+        print("Giai đoạn 1: dùng lại kết quả trong e1b-results.json")
+        stage1: list[Result] = json.loads(results_path.read_text(encoding="utf-8"))["stage1_all"]
+    else:
+        print("Giai đoạn 1: tinh chỉnh AbilityConfig trên validation")
+        stage1 = search(player_grid(), args.workers)
+    best_config = AbilityConfig(**stage1[0]["config"])
     default_row = next(r for r in stage1 if r["config"] == asdict(E1_CONFIG))
     for label, r in (("mặc định (E1)", default_row), ("tốt nhất", stage1[0])):
         print(f"  {label}: val log-loss {r['val_log_loss']:.4f} (thô {r['val_raw_log_loss']:.4f}), AUC {r['val_auc']:.4f}, {r['config']}")
 
-    standard = [r for r in stage1 if r["config"]["scale"] == E1_CONFIG.scale]  # type: ignore[index]
-    best_standard = AbilityConfig(**standard[0]["config"])  # type: ignore[arg-type]
+    standard = [r for r in stage1 if r["config"]["scale"] == E1_CONFIG.scale]
+    best_standard = AbilityConfig(**standard[0]["config"])
     print(f"  tốt nhất với thang chuẩn: val log-loss {standard[0]['val_log_loss']:.4f} (thô {standard[0]['val_raw_log_loss']:.4f}), AUC {standard[0]['val_auc']:.4f}, {standard[0]['config']}")
 
-    print("Giai đoạn 2: thêm độ khó theo bài tập")
+    print("Giai đoạn 2: thêm độ lệch rating theo bài tập")
     stage2 = search(item_grid(best_config), args.workers)
-    best_item = ItemConfig(**stage2[0]["item"])  # type: ignore[arg-type]
+    best_item = ItemConfig(**stage2[0]["item"])
     print(f"  tốt nhất: val log-loss {stage2[0]['val_log_loss']:.4f}, AUC {stage2[0]['val_auc']:.4f}, {stage2[0]['item']}")
 
     print("Giai đoạn 3: đo một lần trên phần test")
     data = load_data()
     variants = {
         "E1: Elo theo kỹ năng, mặc định": (E1_CONFIG, None),
-        "Đã tinh chỉnh, thang chuẩn (cho app)": (best_standard, None),
-        "Đã tinh chỉnh": (best_config, None),
-        "Đã tinh chỉnh + độ khó theo bài tập": (best_config, best_item),
+        "Tinh chỉnh K, giữ thang chuẩn": (best_standard, None),
+        "Đã tinh chỉnh (mặc định của app)": (best_config, None),
+        "Đã tinh chỉnh + độ lệch rating bài tập": (best_config, best_item),
     }
     rows = []
     print("| Cấu hình | Accuracy | AUC | Log-loss thô | Log-loss sau Platt | p≈0,7 (thô) | p≈0,7 (Platt) |")
     print("| --- | ---: | ---: | ---: | ---: | ---: | ---: |")
-    for label, (config, item) in variants.items():
-        raw, cal, raw_bins, cal_bins = test_scores(data, run(data, config, item))
+    runs = {label: run(data, config, item) for label, (config, item) in variants.items()}
+    runs["… nhưng δ không học từ phần test"] = run(data, best_config, best_item, learn_from_test=False)
+    for label, predictions in runs.items():
+        raw, cal, raw_bins, cal_bins = test_scores(data, predictions)
         print(
             f"| {label} | {raw.accuracy:.4f} | {raw.auc:.4f} | {raw.log_loss:.4f} | {cal.log_loss:.4f} | "
             f"{near_target(raw_bins)} | {near_target(cal_bins)} |"
@@ -291,7 +306,7 @@ def main() -> None:
         "chosen_item": asdict(best_item),
         "test": rows,
     }
-    target = DOCS_DIR / "e1b-results.json"
+    target = results_path
     target.write_text(json.dumps(out, indent=2, ensure_ascii=False), encoding="utf-8")
     print(f"Đã ghi {target}")
 

@@ -5,17 +5,11 @@ import chess
 import pytest
 from conftest import PUZZLE_SAMPLE
 from fastapi.testclient import TestClient
-from helpers import play, start
+from helpers import play, register_new_player, start
 
 from chesscoach.app import create_app
 
 MIN_ATTEMPTS = 20
-
-
-def register(client: TestClient, email: str) -> None:
-    client.cookies.clear()
-    r = client.post("/api/auth/register", json={"email": email, "password": "matkhau-dai-du", "display_name": "X"})
-    assert r.status_code == 201, r.text
 
 
 def easy_puzzles() -> list[tuple[str, int, str]]:
@@ -53,11 +47,11 @@ def calibrating_client() -> Iterator[TestClient]:
 
 def test_chua_du_lan_giai_thi_xac_suat_giu_cong_thuc_goc(calibrating_client: TestClient) -> None:
     puzzles = easy_puzzles()
-    register(calibrating_client, "a@example.com")
+    register_new_player(calibrating_client, "a@example.com")
     for puzzle_id, _, wrong in puzzles[: MIN_ATTEMPTS - 1]:
         play(calibrating_client, start(calibrating_client, puzzle_id)["attempt_id"], wrong)
 
-    register(calibrating_client, "moi@example.com")
+    register_new_player(calibrating_client, "moi@example.com")
     puzzle_id, rating, _ = puzzles[MIN_ATTEMPTS]
 
     assert abs(start(calibrating_client, puzzle_id)["predicted_p"] - elo_p(rating)) < 1e-3
@@ -66,11 +60,11 @@ def test_chua_du_lan_giai_thi_xac_suat_giu_cong_thuc_goc(calibrating_client: Tes
 def test_hay_giai_sai_bai_tap_duoc_doan_de_thi_xac_suat_duoc_ha_xuong(calibrating_client: TestClient) -> None:
     puzzles = easy_puzzles()
     assert len(puzzles) > MIN_ATTEMPTS + 2
-    register(calibrating_client, "a@example.com")
+    register_new_player(calibrating_client, "a@example.com")
     for puzzle_id, _, wrong in puzzles[:MIN_ATTEMPTS]:
         play(calibrating_client, start(calibrating_client, puzzle_id)["attempt_id"], wrong)
 
-    register(calibrating_client, "moi@example.com")
+    register_new_player(calibrating_client, "moi@example.com")
     puzzle_id, rating, _ = puzzles[MIN_ATTEMPTS + 1]
 
     # Hướng là điều được kiểm tra; mức hạ nhỏ vì 20 lần giải còn ít so với phần kéo về (a = 0, b = 1).

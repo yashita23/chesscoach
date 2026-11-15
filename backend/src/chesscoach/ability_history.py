@@ -1,10 +1,11 @@
 """Năng lực của người chơi, tính lại từ lịch sử lần giải trong DB."""
 
+import threading
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from chesscoach.ability import Ability, Observation, ProbabilityCalibration, replay, replay_with_predictions
@@ -20,7 +21,7 @@ def _labeled_attempts(db: Session, player_id: int | None = None) -> list[Attempt
     return list(db.scalars(query).all())
 
 
-def _decided(a: Attempt) -> tuple[datetime, int]:
+def _decided_order(a: Attempt) -> tuple[datetime, int]:
     return (a.decided_at or a.started_at, a.id)
 
 
@@ -30,23 +31,40 @@ def _observation(a: Attempt) -> Observation:
 
 def player_ability(db: Session, player_id: int) -> Ability:
     """Chạy lại mô hình năng lực trên các lần giải đã có nhãn, theo thứ tự lúc chốt nhãn."""
-    return replay(_observation(a) for a in sorted(_labeled_attempts(db, player_id), key=_decided))
+    return replay(_observation(a) for a in sorted(_labeled_attempts(db, player_id), key=_decided_order))
 
 
 @dataclass
 class CalibrationCache:
-    """Hiệu chỉnh xác suất chung cho cả app, fit lại khi số lần giải đã có nhãn thay đổi."""
+    """Hiệu chỉnh xác suất chung cho cả app.
+
+    Mỗi request chỉ đếm số lần giải đã có nhãn. Fit lại (chạy lại mô hình cho mọi người chơi) chỉ khi vừa vượt
+    ngưỡng `min_attempts`, hoặc số lần giải đã tăng ít nhất `refit_growth` (và ít nhất `refit_min_new`) so với
+    lần fit trước. An toàn khi nhiều request chạy song song.
+    """
 
     min_attempts: int
-    labeled: int = -1
+    refit_growth: float = 0.1
+    refit_min_new: int = 50
+    fitted_at: int = -1
     calibration: ProbabilityCalibration = ProbabilityCalibration()
+    _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
 
     def get(self, db: Session) -> ProbabilityCalibration:
-        attempts = _labeled_attempts(db)
-        if len(attempts) != self.labeled:
-            self.labeled = len(attempts)
-            self.calibration = fit_calibration(attempts, self.min_attempts)
-        return self.calibration
+        labeled = db.scalar(
+            select(func.count()).select_from(Attempt).where(
+                Attempt.correct.is_not(None), Attempt.puzzle_rating.is_not(None)
+            )
+        ) or 0
+        with self._lock:
+            if labeled < self.min_attempts:
+                self.calibration, self.fitted_at = ProbabilityCalibration(), -1  # chưa đủ dữ liệu: không hiệu chỉnh
+            elif self.fitted_at < 0 or labeled - self.fitted_at >= max(
+                self.refit_min_new, self.refit_growth * self.fitted_at
+            ):
+                self.calibration = fit_calibration(_labeled_attempts(db), self.min_attempts)
+                self.fitted_at = labeled
+            return self.calibration
 
 
 def fit_calibration(attempts: list[Attempt], min_attempts: int) -> ProbabilityCalibration:
@@ -62,7 +80,7 @@ def fit_calibration(attempts: list[Attempt], min_attempts: int) -> ProbabilityCa
     predictions: list[float] = []
     outcomes: list[bool] = []
     for history in by_player.values():
-        history.sort(key=_decided)
+        history.sort(key=_decided_order)
         _, predicted = replay_with_predictions(_observation(a) for a in history)
         predictions.extend(predicted)
         outcomes.extend(bool(a.correct) for a in history)

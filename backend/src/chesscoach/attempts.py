@@ -32,7 +32,7 @@ def get_calibration_cache(request: Request) -> CalibrationCache:
     return cache
 
 
-Calibrations = Annotated[CalibrationCache, Depends(get_calibration_cache)]
+Calibration = Annotated[CalibrationCache, Depends(get_calibration_cache)]
 
 
 def _now() -> datetime:
@@ -101,12 +101,12 @@ def _attempt_out(attempt: Attempt, puzzle: Puzzle, predicted_p: float) -> Attemp
 
 @router.post("/attempts", status_code=status.HTTP_201_CREATED)
 def start_attempt(
-    body: StartRequest, player: CurrentPlayer, db: Db, catalog: Catalog, calibrations: Calibrations, response: Response
+    body: StartRequest, player: CurrentPlayer, db: Db, catalog: Catalog, calibration: Calibration, response: Response
 ) -> AttemptOut:
     """Mở lần giải cho một bài tập. Lần giải đang dở thì mở lại (200); bài tập đã có nhãn thì 409."""
     puzzle = _puzzle_or_404(catalog, body.puzzle_id)
     raw_p = predict(player_ability(db, player.id), skills_of(puzzle.themes), puzzle.rating)
-    p = calibrations.get(db).apply(raw_p)
+    p = calibration.get(db).apply(raw_p)
     existing = db.scalars(
         select(Attempt).where(Attempt.player_id == player.id, Attempt.puzzle_id == puzzle.id)
     ).first()

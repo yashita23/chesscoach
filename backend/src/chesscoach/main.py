@@ -26,4 +26,8 @@ def _puzzle_catalog() -> Path:
     return path if path.is_absolute() else BACKEND_DIR / path
 
 
-app = create_app(database_url=_database_url(), puzzle_catalog=_puzzle_catalog())
+app = create_app(
+    database_url=_database_url(),
+    puzzle_catalog=_puzzle_catalog(),
+    calibration_min_attempts=int(os.environ.get("CHESSCOACH_CALIBRATION_MIN_ATTEMPTS", "200")),
+)

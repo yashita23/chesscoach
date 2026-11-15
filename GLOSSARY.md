@@ -33,6 +33,10 @@ Bảng duy nhất gán mỗi chủ đề kỹ năng vào một kỹ năng, dùng
 Độ khó của một bài tập theo thang Glicko-2 của Lichess.
 _Tránh_: Elo của bài, độ khó (khi cần con số)
 
+**Độ lệch rating bài tập**:
+Phần cộng thêm vào rating bài tập, học từ kết quả các lần giải, khi rating gốc không khớp độ khó thật. Hiện chỉ dùng trong đánh giá.
+_Tránh_: độ khó học được, item difficulty
+
 **Lần giải**:
 Một lần người chơi làm một bài tập. Lần giải chỉ đúng khi mọi nước đều đúng ngay lần đầu; một nước được tính đúng nếu trùng lời giải hoặc chiếu hết.
 _Tránh_: attempt, lượt làm
@@ -54,6 +58,10 @@ _Tránh_: người cùng Elo, peer group
 **Năng lực**:
 Ước lượng θ về sức giải bài tập của một người chơi, gồm năng lực chung và độ lệch theo từng kỹ năng, nằm cùng thang với rating bài tập. Năng lực ở một kỹ năng là năng lực chung cộng độ lệch của kỹ năng đó.
 _Tránh_: Elo (khi nói về θ), điểm, level
+
+**Hiệu chỉnh xác suất**:
+Bước sửa xác suất giải đúng mà mô hình năng lực dự đoán, để nó khớp tỉ lệ giải đúng thật; học chung cho cả app từ lịch sử lần giải. Khác với việc bài kiểm tra đầu vào chỉnh lại năng lực ban đầu.
+_Tránh_: calibration, hiệu chỉnh (nói trống)
 
 **Hồ sơ kỹ năng**:
 Màn hình và dữ liệu cho người chơi xem năng lực chung, năng lực từng kỹ năng kèm khoảng tin cậy, và radar theo nhóm kỹ năng.

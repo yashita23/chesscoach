@@ -1,5 +1,6 @@
 {
   "source": "Elo theo kỹ năng trên toàn bộ bộ Stanford (thang rating Chess.com), sau lần giải cuối",
+  "caveat": "Ước lượng điểm đã co về 0, không phải phân bố ẩn thật: std gồm cả nhiễu ước lượng và bị co nhỏ lại",
   "min_attempts_per_skill": 10,
   "theta": {
     "players": 1068,

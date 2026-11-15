@@ -2,11 +2,12 @@
 
     uv run python -m chesscoach.experiments.e1_layer1 predict --model elo --seed 0
     uv run python -m chesscoach.experiments.e1_layer1 report
+    uv run python -m chesscoach.experiments.e1_layer1 distribution
 
 Bốn mô hình, chạy trên phép chia theo thời gian của E0 (`npm run data`):
 - elo:       Elo chung. Module mô hình năng lực của app (`chesscoach.ability`), bài tập không mang kỹ năng nào.
 - skill_elo: Elo theo kỹ năng. Cùng module đó, kỹ năng lấy từ chủ đề Chess.com qua bản đồ kỹ năng của app.
-- irt:       IRT 1PL. θ người chơi và b bài tập fit trên phần train, co về mức lấy từ rating Chess.com.
+- irt:       IRT 1PL. θ người chơi và b bài tập fit trên phần train, co về tiên nghiệm lấy từ rating Chess.com.
 - bkt:       Bayesian Knowledge Tracing (pyBKT), một mô hình cho mỗi kỹ năng, fit trên phần train.
 
 elo, skill_elo và bkt dự đoán trực tuyến: dự đoán mỗi lần giải trước khi biết kết quả, rồi cập nhật. irt giữ θ
@@ -18,17 +19,17 @@ import argparse
 import json
 import sys
 import time
-from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Literal, NamedTuple
 
 import duckdb
 import numpy as np
 import numpy.typing as npt
 
-from chesscoach.ability import SCALE, Ability, Observation, predict, update
-from chesscoach.experiments.metrics import Calibration, FloatArray, logit, score, sigmoid
+from chesscoach.ability import Ability, Observation, predict, update
+from chesscoach.experiments.metrics import Calibration, FloatArray, Platt, score, sigmoid
 from chesscoach.experiments.stanford import RAW_DIR, SPLIT_DIR
 from chesscoach.skills import SKILLS, skills_of_chesscom
 
@@ -36,15 +37,6 @@ OUT_DIR = SPLIT_DIR.parent / "e1"
 DOCS_DIR = Path(__file__).resolve().parents[4] / "docs" / "experiments"
 SEEDS = (0, 1, 2)
 ModelName = Literal["elo", "skill_elo", "irt", "bkt"]
-MODELS: tuple[ModelName, ...] = ("elo", "skill_elo", "irt", "bkt")
-LABELS: dict[ModelName, str] = {
-    "elo": "Elo chung",
-    "skill_elo": "Elo theo kỹ năng",
-    "irt": "IRT",
-    "bkt": "BKT (pyBKT)",
-}
-# Hai mô hình Elo dùng thang rating Chess.com gốc nên lệch xác suất trên dữ liệu đã cân bằng 50%.
-NEEDS_CALIBRATION: frozenset[ModelName] = frozenset({"elo", "skill_elo"})
 
 
 @dataclass(frozen=True)
@@ -103,44 +95,56 @@ def run_elo(data: Attempts, with_skills: bool) -> tuple[FloatArray, dict[int, Ab
     return p, abilities
 
 
-def run_irt(data: Attempts, seed: int, iterations: int = 400, prior_weight: float = 1.25) -> FloatArray:
-    """IRT 1PL: p = σ(θ_người chơi − b_bài tập), fit bằng Adam trên phần train.
+def run_irt(data: Attempts, seed: int) -> FloatArray:
+    """IRT 1PL: p = σ(θ người chơi − b bài tập + c), fit bằng Adam trên phần train.
 
-    θ và b co về mức lấy từ rating Chess.com (trọng số `prior_weight`, tương đương vài lần giải), nên bài tập
-    chưa xuất hiện trong train vẫn có độ khó hợp lý.
+    θ và b co về tiên nghiệm lấy từ rating Chess.com. Độ dốc và hệ số chặn của tiên nghiệm được fit trên phần
+    train (như baseline hiệu chỉnh của E0), vì độ dốc 400/ln 10 của Elo sách giáo khoa quá dốc với bộ dữ liệu
+    này. Trọng số co 1,25 tương đương khoảng 5 lần giải (mỗi lần giải đóng góp p(1−p) ≈ 0,25); chọn trước,
+    không tinh chỉnh trên phần test.
     """
+    iterations, prior_weight = 400, 1.25
     rng = np.random.default_rng(seed)
-    users, u_idx = np.unique(data.user_id, return_inverse=True)
-    items, i_idx = np.unique(data.puzzle_id, return_inverse=True)
+    users, user_of_row = np.unique(data.user_id, return_inverse=True)
+    items, item_of_row = np.unique(data.puzzle_id, return_inverse=True)
     train = ~data.is_test
+    prior = Calibration.fit(data.pre_rating[train] - data.puzzle_rating[train], data.is_correct[train])
     first_rating = np.zeros(len(users))
-    first_rows = np.flatnonzero(np.r_[True, np.diff(u_idx) != 0])  # dữ liệu đã sắp theo người chơi, thời gian
-    first_rating[u_idx[first_rows]] = data.pre_rating[first_rows]
+    first_rows = np.flatnonzero(np.r_[True, np.diff(user_of_row) != 0])  # dữ liệu đã sắp theo người chơi, thời gian
+    first_rating[user_of_row[first_rows]] = data.pre_rating[first_rows]
     item_rating = np.zeros(len(items))
-    item_rating[i_idx] = data.puzzle_rating
-    theta0, b0 = (first_rating - 1500) / SCALE, (item_rating - 1500) / SCALE
+    item_rating[item_of_row] = data.puzzle_rating
+    theta0 = prior.b * (first_rating - 1500) / 400
+    b0 = prior.b * (item_rating - 1500) / 400
     theta = theta0 + rng.normal(0, 0.01, len(users))
     b = b0 + rng.normal(0, 0.01, len(items))
-    bias = 0.0
-    ut, it, y = u_idx[train], i_idx[train], data.is_correct[train]
-    params = [theta, b, np.zeros(1)]
-    m = [np.zeros_like(x) for x in params]
-    v = [np.zeros_like(x) for x in params]
+    params = [theta, b, np.array([prior.a])]
+    first_moment = [np.zeros_like(x) for x in params]
+    second_moment = [np.zeros_like(x) for x in params]
+    users_train, items_train, y = user_of_row[train], item_of_row[train], data.is_correct[train]
     lr, beta1, beta2 = 0.05, 0.9, 0.999
     for step in range(1, iterations + 1):
-        residual = sigmoid(theta[ut] - b[it] + bias) - y  # đạo hàm log-loss theo logit
+        residual = sigmoid(theta[users_train] - b[items_train] + params[2][0]) - y  # đạo hàm log-loss theo logit
         grads = [
-            np.bincount(ut, residual, len(users)) + prior_weight * (theta - theta0),
-            -np.bincount(it, residual, len(items)) + prior_weight * (b - b0),
+            np.bincount(users_train, residual, len(users)) + prior_weight * (theta - theta0),
+            -np.bincount(items_train, residual, len(items)) + prior_weight * (b - b0),
             np.array([residual.sum()]),
         ]
         for j, g in enumerate(grads):
-            m[j] = beta1 * m[j] + (1 - beta1) * g
-            v[j] = beta2 * v[j] + (1 - beta2) * g * g
-            params[j] -= lr * (m[j] / (1 - beta1**step)) / (np.sqrt(v[j] / (1 - beta2**step)) + 1e-8)
-        bias = float(params[2][0])
-    result: FloatArray = sigmoid(theta[u_idx] - b[i_idx] + bias)
+            first_moment[j] = beta1 * first_moment[j] + (1 - beta1) * g
+            second_moment[j] = beta2 * second_moment[j] + (1 - beta2) * g * g
+            corrected = first_moment[j] / (1 - beta1**step)
+            params[j] -= lr * corrected / (np.sqrt(second_moment[j] / (1 - beta2**step)) + 1e-8)
+    result: FloatArray = sigmoid(theta[user_of_row] - b[item_of_row] + params[2][0])
     return result
+
+
+def run_elo_overall(data: Attempts, seed: int) -> FloatArray:
+    return run_elo(data, with_skills=False)[0]
+
+
+def run_skill_elo(data: Attempts, seed: int) -> FloatArray:
+    return run_elo(data, with_skills=True)[0]
 
 
 def run_bkt(data: Attempts, seed: int) -> FloatArray:
@@ -162,123 +166,141 @@ def run_bkt(data: Attempts, seed: int) -> FloatArray:
     return p
 
 
+@dataclass(frozen=True)
+class ModelSpec:
+    label: str
+    run: Callable[[Attempts, int], FloatArray]
+    color: str
+    marker: str
+
+
+# Màu theo thứ tự ô 1–4 của bảng màu đã kiểm tra (dataviz); mỗi mô hình giữ đúng màu của nó.
+MODELS: dict[ModelName, ModelSpec] = {
+    "elo": ModelSpec("Elo chung", run_elo_overall, "#2a78d6", "o"),
+    "skill_elo": ModelSpec("Elo theo kỹ năng", run_skill_elo, "#eb6834", "s"),
+    "irt": ModelSpec("IRT", run_irt, "#1baf7a", "^"),
+    "bkt": ModelSpec("BKT (pyBKT)", run_bkt, "#eda100", "D"),
+}
+
+
+class CalibrationBin(NamedTuple):
+    mean_p: float
+    observed: float
+    attempts: int
+
+
 def predictions_path(model: ModelName, seed: int) -> Path:
     return OUT_DIR / f"pred_{model}_seed{seed}.npy"
 
 
 def cmd_predict(model: ModelName, seed: int) -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    data = load_attempts()
     started = time.time()
-    if model in ("elo", "skill_elo"):
-        p, abilities = run_elo(data, with_skills=model == "skill_elo")
-        if model == "skill_elo":
-            write_skill_distribution(abilities)
-    elif model == "irt":
-        p = run_irt(data, seed)
-    else:
-        p = run_bkt(data, seed)
+    p = MODELS[model].run(load_attempts(), seed)
     np.save(predictions_path(model, seed), p)
     print(f"{model} seed {seed}: {time.time() - started:.0f}s → {predictions_path(model, seed)}")
 
 
-def write_skill_distribution(abilities: dict[int, Ability], min_attempts: int = 10) -> None:
-    """Phân bố năng lực và độ lệch θₖ giữa các người chơi, cho người học mô phỏng ở lớp 3."""
+def cmd_distribution(min_attempts: int = 10) -> None:
+    """Phân bố năng lực sau lần giải cuối của từng người chơi (Elo theo kỹ năng), cho người học mô phỏng ở lớp 3."""
+    _, abilities = run_elo(load_attempts(), with_skills=True)
     thetas = np.array([a.theta for a in abilities.values()])
     skills = {}
     for s in SKILLS:
-        devs = np.array(
+        deviations = np.array(
             [a.skill(s.id).effective_deviation for a in abilities.values() if a.skill(s.id).attempts >= min_attempts]
         )
         skills[s.id] = {
-            "players": int(len(devs)),
-            "mean": round(float(devs.mean()), 1) if len(devs) else None,
-            "std": round(float(devs.std()), 1) if len(devs) else None,
+            "players": int(len(deviations)),
+            "mean": round(float(deviations.mean()), 1) if len(deviations) else None,
+            "std": round(float(deviations.std()), 1) if len(deviations) else None,
         }
     out = {
         "source": "Elo theo kỹ năng trên toàn bộ bộ Stanford (thang rating Chess.com), sau lần giải cuối",
+        "caveat": "Ước lượng điểm đã co về 0, không phải phân bố ẩn thật: std gồm cả nhiễu ước lượng và bị co nhỏ lại",
         "min_attempts_per_skill": min_attempts,
         "theta": {"players": int(len(thetas)), "mean": round(float(thetas.mean()), 1), "std": round(float(thetas.std()), 1)},
         "skill_deviation": skills,
     }
     DOCS_DIR.mkdir(parents=True, exist_ok=True)
-    (DOCS_DIR / "e1-skill-distribution.json").write_text(json.dumps(out, indent=2, ensure_ascii=False), encoding="utf-8")
+    target = DOCS_DIR / "e1-skill-distribution.json"
+    target.write_text(json.dumps(out, indent=2, ensure_ascii=False), encoding="utf-8")
+    print(f"Đã ghi {target}")
 
 
-def calibration_bins(p: FloatArray, y: FloatArray, bins: int = 10, min_count: int = 500) -> list[tuple[float, float, int]]:
-    """(p trung bình, tỉ lệ đúng thật, số lần giải) cho mỗi khoảng p rộng 0,1 có ít nhất `min_count` lần giải."""
-    edges = np.minimum((p * bins).astype(int), bins - 1)
-    out = []
-    for k in range(bins):
-        mask = edges == k
-        if mask.sum() >= min_count:
-            out.append((float(p[mask].mean()), float(y[mask].mean()), int(mask.sum())))
-    return out
+def calibration_bins(p: FloatArray, y: FloatArray, min_attempts: int = 500) -> list[CalibrationBin]:
+    """Các khoảng p rộng 0,1 có ít nhất `min_attempts` lần giải."""
+    bin_of_row = np.minimum((p * 10).astype(int), 9)
+    bins = []
+    for k in range(10):
+        in_bin = bin_of_row == k
+        if in_bin.sum() >= min_attempts:
+            bins.append(CalibrationBin(float(p[in_bin].mean()), float(y[in_bin].mean()), int(in_bin.sum())))
+    return bins
+
+
+def format_bins(bins: list[CalibrationBin]) -> str:
+    return "; ".join(f"{b.mean_p:.2f} → {b.observed:.2f} ({b.attempts:,})" for b in bins)
+
+
+def mean_std(values: list[float]) -> str:
+    return f"{np.mean(values):.4f} ± {np.std(values):.4f}"
 
 
 def cmd_report() -> None:
     data = load_attempts()
     test, y_test, y_train = data.is_test, data.is_correct[data.is_test], data.is_correct[~data.is_test]
-    final: dict[ModelName, list[FloatArray]] = defaultdict(list)
+    raw_curves: dict[ModelName, list[CalibrationBin]] = {}
+    platt_curves: dict[ModelName, list[CalibrationBin]] = {}
     print("| Mô hình | Accuracy | AUC | Log-loss | p trung bình |")
     print("| --- | ---: | ---: | ---: | ---: |")
-    for model in MODELS:
-        runs = [np.load(predictions_path(model, s)) for s in SEEDS if predictions_path(model, s).exists()]
+    for name, spec in MODELS.items():
+        runs = [np.load(predictions_path(name, s)) for s in SEEDS if predictions_path(name, s).exists()]
         if not runs:
             continue
-        variants: list[tuple[str, list[FloatArray]]] = [(LABELS[model], [r[test] for r in runs])]
-        if model in NEEDS_CALIBRATION:
-            calibrated = []
-            for r in runs:
-                # Hiệu chỉnh Platt: σ(a + b·logit p), fit trên các dự đoán của phần train.
-                cal = Calibration.fit(400 * logit(r[~test]), y_train)
-                calibrated.append(cal.predict(400 * logit(r[test])))
-            variants = [(f"{LABELS[model]} (thô)", [r[test] for r in runs]), (f"{LABELS[model]} (hiệu chỉnh)", calibrated)]
-        final[model] = variants[-1][1]
-        for name, preds in variants:
+        # Hiệu chỉnh Platt fit trên dự đoán phần train của chính lần chạy đó.
+        calibrated = [Platt.fit(r[~test], y_train).predict(r[test]) for r in runs]
+        for label, preds in ((f"{spec.label} (thô)", [r[test] for r in runs]), (f"{spec.label} (Platt)", calibrated)):
             scores = [score(p, y_test) for p in preds]
-
-            def cell(values: list[float]) -> str:
-                return f"{np.mean(values):.4f} ± {np.std(values):.4f}"
-
             print(
-                f"| {name} | {cell([s.accuracy for s in scores])} | {cell([s.auc for s in scores])} | "
-                f"{cell([s.log_loss for s in scores])} | {np.mean([s.mean_p for s in scores]):.3f} |"
+                f"| {label} | {mean_std([s.accuracy for s in scores])} | {mean_std([s.auc for s in scores])} | "
+                f"{mean_std([s.log_loss for s in scores])} | {np.mean([s.mean_p for s in scores]):.3f} |"
             )
-        print(f"<!-- {model}: {len(runs)} seed -->")
+        print(f"<!-- {name}: {len(runs)} seed -->")
+        raw_curves[name] = calibration_bins(runs[0][test], y_test)
+        platt_curves[name] = calibration_bins(calibrated[0], y_test)
 
-    print("\nĐộ hiệu chỉnh (seed 0): p trung bình → tỉ lệ đúng thật (số lần giải)\n")
-    curves = {m: calibration_bins(preds[0], y_test) for m, preds in final.items()}
-    for m, curve in curves.items():
-        print(f"- {LABELS[m]}: " + "; ".join(f"{p:.2f} → {o:.2f} ({n:,})" for p, o, n in curve))
-    plot_calibration(curves)
+    print("\nĐộ hiệu chỉnh (seed 0): p dự đoán → tỉ lệ đúng thật (số lần giải)\n")
+    for name in raw_curves:
+        print(f"- {MODELS[name].label} (thô): {format_bins(raw_curves[name])}")
+        print(f"- {MODELS[name].label} (Platt): {format_bins(platt_curves[name])}")
+    plot_calibration(raw_curves)
 
 
-def plot_calibration(curves: dict[ModelName, list[tuple[float, float, int]]]) -> None:
+def plot_calibration(curves: dict[ModelName, list[CalibrationBin]]) -> None:
     import matplotlib
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    colors = {"elo": "#2a78d6", "skill_elo": "#eb6834", "irt": "#1baf7a", "bkt": "#eda100"}
-    markers = {"elo": "o", "skill_elo": "s", "irt": "^", "bkt": "D"}
     fig, ax = plt.subplots(figsize=(7.2, 5.6), dpi=150)
     ax.plot([0, 1], [0, 1], color="#9aa0a6", linestyle=(0, (4, 4)), linewidth=1.5, label="Hiệu chỉnh hoàn hảo")
-    for m, curve in curves.items():
-        xs, ys = [c[0] for c in curve], [c[1] for c in curve]
-        ax.plot(xs, ys, color=colors[m], marker=markers[m], markersize=6, linewidth=2, label=LABELS[m])
+    for name, curve in curves.items():
+        spec = MODELS[name]
+        ax.plot([b.mean_p for b in curve], [b.observed for b in curve], color=spec.color, marker=spec.marker,
+                markersize=6, linewidth=2, label=spec.label)
     # Nhãn trực tiếp ở mép phải, giãn cách để không đè nhau.
-    ends = sorted(((curve[-1][1], m) for m, curve in curves.items() if curve), reverse=True)
+    ends = sorted(((curve[-1].observed, name) for name, curve in curves.items() if curve), reverse=True)
     placed: list[float] = []
-    for y_end, m in ends:
+    for y_end, name in ends:
         y_label = min([y_end] + [p - 0.05 for p in placed[-1:]])
         placed.append(y_label)
-        ax.annotate(LABELS[m], xy=(curves[m][-1][0], y_end), xytext=(1.02, y_label), textcoords=("axes fraction", "data"),
-                    fontsize=8, color="#3c4043", va="center", annotation_clip=False,
-                    arrowprops={"arrowstyle": "-", "color": colors[m], "linewidth": 0.8})
+        ax.annotate(MODELS[name].label, xy=(curves[name][-1].mean_p, y_end), xytext=(1.02, y_label),
+                    textcoords=("axes fraction", "data"), fontsize=8, color="#3c4043", va="center",
+                    annotation_clip=False, arrowprops={"arrowstyle": "-", "color": MODELS[name].color, "linewidth": 0.8})
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
-    ax.set_xlabel("Xác suất giải đúng dự đoán")
+    ax.set_xlabel("Xác suất giải đúng dự đoán (thô, chưa hiệu chỉnh)")
     ax.set_ylabel("Tỉ lệ giải đúng thật")
     ax.set_title("Độ hiệu chỉnh trên phần test (seed 0)", loc="left", fontsize=11)
     ax.grid(color="#e8eaed", linewidth=0.8)
@@ -294,17 +316,19 @@ def main() -> None:
     sys.stdout.reconfigure(encoding="utf-8")  # type: ignore[union-attr]  # console Windows mặc định cp1258
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
     sub = parser.add_subparsers(dest="command", required=True)
-    p = sub.add_parser("predict")
-    p.add_argument("--model", choices=MODELS, required=True)
-    p.add_argument("--seed", type=int, choices=SEEDS, required=True)
-    sub.add_parser("report")
+    predict_cmd = sub.add_parser("predict", help="chạy một mô hình, ghi dự đoán ra data/stanford/e1/")
+    predict_cmd.add_argument("--model", choices=list(MODELS), required=True)
+    predict_cmd.add_argument("--seed", type=int, choices=SEEDS, required=True)
+    sub.add_parser("report", help="bảng kết quả, bảng và biểu đồ độ hiệu chỉnh")
+    sub.add_parser("distribution", help="phân bố năng lực theo kỹ năng cho lớp 3")
     args = parser.parse_args()
     if args.command == "predict":
         cmd_predict(args.model, args.seed)
-    else:
+    elif args.command == "report":
         cmd_report()
+    else:
+        cmd_distribution()
 
 
 if __name__ == "__main__":
     main()
-

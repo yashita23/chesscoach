@@ -27,7 +27,7 @@ Một trong vài nhóm gom các kỹ năng gần nhau (ví dụ "Chiếu hết",
 _Tránh_: nhóm radar, nhóm (nói trống, dễ lẫn với Nhóm tham chiếu)
 
 **Bản đồ kỹ năng**:
-Bảng duy nhất gán mỗi chủ đề kỹ năng vào một kỹ năng, dùng chung cho cả bài tập lẫn lỗi trong ván.
+Bảng duy nhất gán mỗi chủ đề kỹ năng vào một kỹ năng, dùng chung cho cả bài tập lẫn lỗi trong ván. Có thêm một phần chuyển chủ đề Chess.com sang cùng các kỹ năng đó, chỉ dùng cho đánh giá trên bộ Stanford.
 
 **Rating bài tập**:
 Độ khó của một bài tập theo thang Glicko-2 của Lichess.

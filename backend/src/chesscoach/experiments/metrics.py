@@ -87,3 +87,19 @@ class Calibration:
 
     def predict(self, rating_diff: FloatArray) -> FloatArray:
         return sigmoid(self.a + self.b * rating_diff / 400)
+
+
+@dataclass(frozen=True)
+class Platt:
+    """Hiệu chỉnh Platt cho một xác suất có sẵn: p' = σ(a + b·logit p)."""
+
+    a: float
+    b: float
+
+    @classmethod
+    def fit(cls, p: FloatArray, y: FloatArray) -> "Platt":
+        line = Calibration.fit(400 * logit(p), y)  # Calibration chia cho 400, nên nhân trước để giữ nguyên logit
+        return cls(line.a, line.b)
+
+    def predict(self, p: FloatArray) -> FloatArray:
+        return sigmoid(self.a + self.b * logit(p))

@@ -140,10 +140,11 @@ def skills_of(themes: Iterable[str]) -> frozenset[str]:
         elif theme not in META_THEMES and theme not in _warned:
             _warned.add(theme)
             log.warning("Chủ đề Lichess %r chưa có trong bản đồ kỹ năng; tạm bỏ qua", theme)
-    return frozenset(found) if found else frozenset({MISSED_TACTIC})
+    return _or_missed_tactic(found)
 
 
-# Chủ đề Chess.com (bộ Stanford CS398) → kỹ năng, dùng ở lớp đánh giá 1. None là chủ đề mô tả
+# Phần mở rộng của bản đồ kỹ năng cho bộ Stanford CS398 (lớp đánh giá 1): chủ đề Chess.com → kỹ năng của app.
+# Một số cách gán là phán đoán (ví dụ Sacrifice → attraction, Zwischenzug → quiet_move). None là chủ đề mô tả
 # (cấu trúc thế cờ, không phải đòn chiến thuật), giống META_THEMES của Lichess.
 CHESSCOM_THEMES: dict[str, str | None] = {
     "Hanging Piece": "hanging_piece",
@@ -208,6 +209,11 @@ CHESSCOM_THEMES: dict[str, str | None] = {
 def skills_of_chesscom(themes: Iterable[str]) -> frozenset[str]:
     """Như `skills_of`, cho chủ đề Chess.com. Chủ đề lạ coi như chủ đề mô tả."""
     found = {skill for t in themes if (skill := CHESSCOM_THEMES.get(t.strip())) is not None}
+    return _or_missed_tactic(found)
+
+
+def _or_missed_tactic(found: set[str]) -> frozenset[str]:
+    """Bài tập không có chủ đề kỹ năng nào thuộc kỹ năng "bỏ lỡ chiến thuật"."""
     return frozenset(found) if found else frozenset({MISSED_TACTIC})
 
 

@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "setup": "uv --directory backend sync && npm --prefix frontend install",
+    "data": "uv --directory backend run python -m chesscoach.data_setup",
     "dev": "concurrently -n api,web -c green,cyan \"npm:dev:api\" \"npm:dev:web\"",
     "dev:api": "uv --directory backend run uvicorn chesscoach.main:app --reload --host 127.0.0.1 --port 8000",
     "dev:web": "npm --prefix frontend run dev",

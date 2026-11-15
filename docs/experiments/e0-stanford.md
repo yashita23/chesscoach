@@ -46,11 +46,12 @@ Tập test gốc ẩn nhãn, nên nhóm chia lại `train.csv`:
 - Lần giải trùng thời điểm được xếp theo hash(số dòng trong file, seed). Chỉ có 4 nhóm trùng, tổng 12 dòng; đều là dòng lặp cùng người chơi, cùng bài tập, cùng thời điểm, và đều nằm sâu trong phần train. Vì vậy đổi seed chỉ đổi thứ tự vài dòng trong train, phần test giữ nguyên.
 
 ```sh
+npm run data                                           # ở thư mục gốc: tải bundle và tạo phép chia
 cd backend
-uv run python -m chesscoach.experiments.e0_baselines --seed 398
+uv run python -m chesscoach.experiments.e0_baselines   # chạy lại phép chia và in các bảng baseline
 ```
 
-Kết quả: train 872.867 lần giải, test 218.760 lần giải (tỉ lệ đúng 0,4981). Lệnh ghi ra `data/stanford/split/{train,test}.parquet` và `manifest.json`.
+Kết quả: train 872.867 lần giải, test 218.760 lần giải (tỉ lệ đúng 0,4981). Cả hai lệnh đều ghi ra `backend/data/stanford/split/{train,test}.parquet` và `manifest.json`, mặc định seed 398.
 
 Đã kiểm tra:
 - Chạy lại với cùng seed thì ra đúng phép chia đó, kể cả thứ tự `seq` (so bằng md5). Với seed khác thì phần test giống hệt, phần train chỉ khác thứ tự các dòng trùng thời điểm.

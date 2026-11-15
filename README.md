@@ -12,15 +12,13 @@ npm run setup      # cài phụ thuộc backend (uv) và frontend (npm)
 cp backend/.env.example backend/.env   # rồi điền LICHESS_API_TOKEN
 ```
 
-Nạp kho bài tập Lichess (CC0, khoảng 300 MB tải về, 6,2 triệu bài tập) một lần:
+Tải dữ liệu một lần (khoảng 340 MB, vài phút):
 
 ```sh
-cd backend
-mkdir -p data/raw
-curl -o data/raw/lichess_db_puzzle.csv.zst https://database.lichess.org/lichess_db_puzzle.csv.zst
-uv run python -m chesscoach.puzzle_import full data/raw/lichess_db_puzzle.csv.zst data/puzzles.parquet
-cd ..
+npm run data       # kho bài tập Lichess + bộ Stanford Chess.com, dựng parquet và phép chia
 ```
+
+Dữ liệu **không nằm trong git**. Repo để công khai, kho Lichess nặng hơn giới hạn 100 MB của GitHub, và bộ Stanford không có giấy phép phân phối lại. Vì vậy mỗi người tự tải từ nguồn gốc. Mọi bước đều cho ra đúng một kết quả, nên máy ai cũng có cùng kho bài tập (6,2 triệu bài tập, CC0) và cùng phép chia Stanford. Bước nào đã có kết quả thì được bỏ qua; muốn làm lại từ đầu thì chạy `npm run data -- --force`.
 
 Sau đó chạy:
 
@@ -30,7 +28,12 @@ npm run dev        # chạy FastAPI ở :8000 và Vite ở :5173
 
 Mở http://localhost:5173. Vite chuyển các request `/api` sang FastAPI, nên cookie phiên đăng nhập luôn cùng origin với trang.
 
-Dữ liệu lưu trong `backend/data/` (đã nằm trong `.gitignore`): `chesscoach.db` cho người chơi và lần giải, `puzzles.parquet` cho kho bài tập. Muốn đổi đường dẫn thì xem `backend/.env.example`.
+Dữ liệu lưu trong `backend/data/` (đã nằm trong `.gitignore`):
+- `chesscoach.db`: người chơi và lần giải;
+- `puzzles.parquet`: kho bài tập;
+- `stanford/`: bộ dữ liệu cho lớp đánh giá 1, xem [docs/experiments/e0-stanford.md](docs/experiments/e0-stanford.md).
+
+Muốn đổi đường dẫn thì xem `backend/.env.example`.
 
 Test dùng bản mẫu 300 bài tập trong `backend/tests/fixtures/puzzles_sample.csv`, nên không cần nạp kho đầy đủ. Bản mẫu được sinh bằng `puzzle_import sample` và tái lập được: cùng seed thì ra đúng bộ bài tập đó.
 

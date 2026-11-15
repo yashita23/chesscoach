@@ -81,7 +81,7 @@ class CalibrationCache:
 
 
 def fit_calibration(
-    attempts: list[Attempt], min_attempts: int, priors: dict[int, Ability] | None = None
+    attempts: list[Attempt], min_attempts: int, priors: dict[int, Ability]
 ) -> ProbabilityCalibration:
     """Fit a, b trên xác suất mà mô hình đã dự đoán cho mọi lần giải (trước khi biết kết quả).
 
@@ -96,7 +96,7 @@ def fit_calibration(
     outcomes: list[bool] = []
     for player_id, history in by_player.items():
         history.sort(key=_decided_order)
-        start = (priors or {}).get(player_id)
+        start = priors.get(player_id)
         _, predicted = replay_with_predictions((_observation(a) for a in history), start)
         predictions.extend(predicted)
         outcomes.extend(bool(a.correct) for a in history)

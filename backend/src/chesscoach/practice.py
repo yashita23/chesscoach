@@ -120,7 +120,7 @@ def get_practice(
             placement=PlacementOut(total=len(progress.puzzle_ids), completed=progress.completed, started=progress.started),
             daily_minutes=player.practice_minutes,
             size=len(progress.puzzle_ids),
-            target_rating=float(progress.band + placement_sets.band_width / 2) if placement_sets else 0.0,
+            target_rating=progress.target_rating,
             items=[_item(s) for s in scored],
         )
     plan = plan_for(player, db, catalog, probability, config)

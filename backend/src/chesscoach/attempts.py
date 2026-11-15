@@ -127,9 +127,13 @@ def start_attempt(
         return _attempt_out(existing, puzzle, p)
 
     progress = placement_status(db, player, placement_sets)  # tính trước khi thêm lần giải mới
-    in_placement = progress is not None and puzzle.id in progress.puzzle_ids
-    if progress is not None and in_placement and player.placement_band is None:
-        player.placement_band = progress.band
+    in_placement = False
+    if progress is not None and placement_sets is not None:
+        if progress.started:
+            in_placement = puzzle.id in progress.puzzle_ids
+        elif (band := placement_sets.band_of(puzzle.id)) is not None:
+            # Chốt dải theo chính bài tập được mở: danh sách người chơi đang thấy có thể thuộc dải cũ.
+            player.placement_band, in_placement = band, True
     attempt = Attempt(
         player_id=player.id,
         puzzle_id=puzzle.id,

@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from chesscoach.app import create_app
 
 # 300 bài thật lấy từ kho Lichess (CC0) bằng `puzzle_import sample`.
-PUZZLE_SAMPLE = Path(__file__).parent / "fixtures" / "puzzles_sample.csv"
+from helpers import PUZZLE_SAMPLE
 
 
 @pytest.fixture

@@ -23,11 +23,11 @@
       },
       {
         "skill": "mate_in_n",
-        "puzzle_id": "tZePc"
+        "puzzle_id": "m1rMz"
       },
       {
         "skill": "king_attack",
-        "puzzle_id": "ilKl4"
+        "puzzle_id": "3I2YU"
       },
       {
         "skill": "mate_in_1",
@@ -53,7 +53,7 @@
       },
       {
         "skill": "mate_in_n",
-        "puzzle_id": "tZePc"
+        "puzzle_id": "XoyBx"
       },
       {
         "skill": "attraction",
@@ -69,7 +69,7 @@
       },
       {
         "skill": "pin",
-        "puzzle_id": "Hl0nj"
+        "puzzle_id": "kJrLm"
       },
       {
         "skill": "discovered_attack",
@@ -85,7 +85,7 @@
       },
       {
         "skill": "other_endgame",
-        "puzzle_id": "AYDLo"
+        "puzzle_id": "LMBLP"
       }
     ],
     "800": [
@@ -149,7 +149,7 @@
       },
       {
         "skill": "attraction",
-        "puzzle_id": "ZOxop"
+        "puzzle_id": "OkhsC"
       },
       {
         "skill": "king_attack",
@@ -169,19 +169,19 @@
       },
       {
         "skill": "deflection",
-        "puzzle_id": "Y08Dg"
+        "puzzle_id": "GrWoT"
       },
       {
         "skill": "quiet_move",
-        "puzzle_id": "E9FU8"
-      },
-      {
-        "skill": "promotion",
         "puzzle_id": "q0fKM"
       },
       {
+        "skill": "promotion",
+        "puzzle_id": "9v8Hb"
+      },
+      {
         "skill": "defense",
-        "puzzle_id": "sShm8"
+        "puzzle_id": "mnqIQ"
       },
       {
         "skill": "other_endgame",
@@ -203,7 +203,7 @@
       },
       {
         "skill": "king_attack",
-        "puzzle_id": "eGoqI"
+        "puzzle_id": "Bb9m7"
       },
       {
         "skill": "mate_in_1",
@@ -227,7 +227,7 @@
       },
       {
         "skill": "promotion",
-        "puzzle_id": "RBRGl"
+        "puzzle_id": "UziOi"
       },
       {
         "skill": "defense",
@@ -235,7 +235,7 @@
       },
       {
         "skill": "other_endgame",
-        "puzzle_id": "AYDLo"
+        "puzzle_id": "TbD92"
       }
     ],
     "1400": [
@@ -253,7 +253,7 @@
       },
       {
         "skill": "king_attack",
-        "puzzle_id": "0EErI"
+        "puzzle_id": "B6MMN"
       },
       {
         "skill": "mate_in_1",
@@ -269,11 +269,11 @@
       },
       {
         "skill": "deflection",
-        "puzzle_id": "Ipwad"
+        "puzzle_id": "m09Er"
       },
       {
         "skill": "quiet_move",
-        "puzzle_id": "E9FU8"
+        "puzzle_id": "pL3n0"
       },
       {
         "skill": "promotion",
@@ -281,7 +281,7 @@
       },
       {
         "skill": "defense",
-        "puzzle_id": "sShm8"
+        "puzzle_id": "eEVBY"
       },
       {
         "skill": "other_endgame",
@@ -295,7 +295,7 @@
       },
       {
         "skill": "mate_in_n",
-        "puzzle_id": "eQ3Vn"
+        "puzzle_id": "WRIGs"
       },
       {
         "skill": "attraction",
@@ -311,11 +311,11 @@
       },
       {
         "skill": "pin",
-        "puzzle_id": "cmxVa"
+        "puzzle_id": "tdbgq"
       },
       {
         "skill": "discovered_attack",
-        "puzzle_id": "ThZHA"
+        "puzzle_id": "ne1Ng"
       },
       {
         "skill": "deflection",
@@ -331,11 +331,11 @@
       },
       {
         "skill": "defense",
-        "puzzle_id": "przU2"
+        "puzzle_id": "AYDB3"
       },
       {
         "skill": "other_endgame",
-        "puzzle_id": "mhFaq"
+        "puzzle_id": "BzHie"
       }
     ],
     "1800": [
@@ -345,11 +345,11 @@
       },
       {
         "skill": "mate_in_n",
-        "puzzle_id": "eQ3Vn"
+        "puzzle_id": "R1GZg"
       },
       {
         "skill": "attraction",
-        "puzzle_id": "KMGvZ"
+        "puzzle_id": "damaB"
       },
       {
         "skill": "king_attack",
@@ -365,7 +365,7 @@
       },
       {
         "skill": "discovered_attack",
-        "puzzle_id": "damaB"
+        "puzzle_id": "QKrS8"
       },
       {
         "skill": "deflection",
@@ -373,7 +373,7 @@
       },
       {
         "skill": "quiet_move",
-        "puzzle_id": "VMQez"
+        "puzzle_id": "Kladf"
       },
       {
         "skill": "promotion",
@@ -391,7 +391,7 @@
     "2000": [
       {
         "skill": "fork",
-        "puzzle_id": "mgx1O"
+        "puzzle_id": "U1Gvs"
       },
       {
         "skill": "mate_in_n",
@@ -407,7 +407,7 @@
       },
       {
         "skill": "pin",
-        "puzzle_id": "gci5A"
+        "puzzle_id": "kjI9Y"
       },
       {
         "skill": "discovered_attack",
@@ -423,7 +423,7 @@
       },
       {
         "skill": "promotion",
-        "puzzle_id": "mU5Dp"
+        "puzzle_id": "PkLEF"
       },
       {
         "skill": "defense",
@@ -431,13 +431,13 @@
       },
       {
         "skill": "other_endgame",
-        "puzzle_id": "mhFaq"
+        "puzzle_id": "ovBvK"
       }
     ],
     "2200": [
       {
         "skill": "fork",
-        "puzzle_id": "mgx1O"
+        "puzzle_id": "NuzlT"
       },
       {
         "skill": "mate_in_n",
@@ -453,7 +453,7 @@
       },
       {
         "skill": "pin",
-        "puzzle_id": "gci5A"
+        "puzzle_id": "bs3Yz"
       },
       {
         "skill": "discovered_attack",
@@ -465,7 +465,7 @@
       },
       {
         "skill": "quiet_move",
-        "puzzle_id": "z13vc"
+        "puzzle_id": "cQjFQ"
       },
       {
         "skill": "promotion",
@@ -477,7 +477,7 @@
       },
       {
         "skill": "other_endgame",
-        "puzzle_id": "mhFaq"
+        "puzzle_id": "4c6Ya"
       }
     ],
     "2400": [
@@ -487,11 +487,11 @@
       },
       {
         "skill": "attraction",
-        "puzzle_id": "WYF2V"
+        "puzzle_id": "VJqEk"
       },
       {
         "skill": "king_attack",
-        "puzzle_id": "hiN62"
+        "puzzle_id": "UPxfY"
       },
       {
         "skill": "pin",
@@ -529,7 +529,7 @@
       },
       {
         "skill": "attraction",
-        "puzzle_id": "WYF2V"
+        "puzzle_id": "34fcQ"
       },
       {
         "skill": "king_attack",
@@ -537,7 +537,7 @@
       },
       {
         "skill": "pin",
-        "puzzle_id": "gci5A"
+        "puzzle_id": "czuMH"
       },
       {
         "skill": "deflection",

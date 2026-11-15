@@ -3,9 +3,8 @@ from collections.abc import Iterator
 
 import chess
 import pytest
-from conftest import PUZZLE_SAMPLE
+from helpers import PUZZLE_SAMPLE, play, register_new_player, start
 from fastapi.testclient import TestClient
-from helpers import play, register_new_player, start
 
 from chesscoach.app import create_app
 

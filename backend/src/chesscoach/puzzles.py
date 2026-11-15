@@ -97,6 +97,11 @@ class PuzzleCatalog:
         finally:
             cursor.close()
 
+    def existing_ids(self, puzzle_ids: Collection[str]) -> set[str]:
+        """Các id trong `puzzle_ids` có trong kho."""
+        rows = self._fetch("SELECT PuzzleId FROM puzzles WHERE list_contains(?, PuzzleId)", [list(puzzle_ids)])
+        return {str(r[0]) for r in rows}
+
     def get(self, puzzle_id: str) -> Puzzle | None:
         rows = self._fetch(f"SELECT {_SELECT} FROM puzzles WHERE PuzzleId = ?", [puzzle_id])
         return _puzzle(rows[0]) if rows else None

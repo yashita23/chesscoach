@@ -5,10 +5,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from conftest import PUZZLE_SAMPLE
+from helpers import PUZZLE_SAMPLE, finish_wrong, register_new_player, start
 from fastapi.testclient import TestClient
-from helpers import register_new_player, start
-from test_practice import finish_wrong
 
 from chesscoach.app import create_app
 
@@ -79,7 +77,7 @@ def test_lan_giai_trong_bai_kiem_tra_duoc_danh_dau_va_cap_nhat_nang_luc(placemen
     assert practice(placement_client)["placement"]["completed"] == 1
 
 
-def test_bo_do_roi_quay_lai_thi_lam_tiep_bai_dang_do(placement_client: TestClient) -> None:
+def test_bo_do_roi_quay_lai_thi_lam_tiep_bai_tap_dang_do(placement_client: TestClient) -> None:
     second = SETS["1400"][1]["puzzle_id"]
     finish_wrong(placement_client, SETS["1400"][0]["puzzle_id"])
     start(placement_client, second)  # mở rồi bỏ dở
@@ -115,3 +113,41 @@ def test_nguoi_choi_da_co_lan_giai_truoc_do_khong_phai_lam_bai_kiem_tra(placemen
     start(placement_client, outside)  # đã có lần giải trước khi bài kiểm tra bắt đầu
 
     assert practice(placement_client)["mode"] == "practice"
+
+
+def test_khong_sua_duoc_rating_van_sau_khi_da_bat_dau(placement_client: TestClient) -> None:
+    finish_wrong(placement_client, SETS["1400"][0]["puzzle_id"])
+    theta = placement_client.get("/api/profile").json()["theta"]
+
+    r = placement_client.patch("/api/me", json={"claimed_rating": 2250})
+
+    assert r.status_code == 409
+    assert placement_client.get("/api/profile").json()["theta"] == theta
+
+
+def test_mo_bai_tap_cua_dai_khac_van_giu_bai_kiem_tra(placement_client: TestClient) -> None:
+    # Danh sách cũ (dải 1400) còn trên màn hình, người chơi đổi rating rồi mới mở bài tập đầu tiên.
+    first = placement_ids(practice(placement_client))[0]
+    placement_client.patch("/api/me", json={"claimed_rating": 2250})
+
+    start(placement_client, first)
+
+    body = practice(placement_client)
+    assert body["mode"] == "placement"
+    assert placement_ids(body) == [p["puzzle_id"] for p in SETS["1400"]]
+    assert placement_client.get("/api/attempts").json()[0]["placement"] is True
+
+
+def test_bo_bai_kiem_tra_co_bai_tap_khong_co_trong_kho_van_lam_duoc(tmp_path: Path) -> None:
+    broken = json.loads(PLACEMENT_SAMPLE.read_text(encoding="utf-8"))
+    broken["sets"]["1400"].insert(0, {"skill": "fork", "puzzle_id": "KHONG_CO"})
+    path = tmp_path / "placement.json"
+    path.write_text(json.dumps(broken), encoding="utf-8")
+    app = create_app(database_url="sqlite:///:memory:", puzzle_catalog=PUZZLE_SAMPLE, placement_sets=path)
+    with TestClient(app) as client:
+        register_new_player(client, "a@example.com")
+        body = practice(client)
+        assert "KHONG_CO" not in placement_ids(body)
+        assert body["placement"]["total"] == len(SETS["1400"])
+        next_id = client.get("/api/puzzles/next").json()["puzzle_id"]
+        assert client.post("/api/attempts", json={"puzzle_id": next_id}).status_code == 201

@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
-from chesscoach.db import LoginSession, Player
+from chesscoach.db import Attempt, LoginSession, Player
 
 SESSION_COOKIE = "chesscoach_session"
 BCRYPT_MAX_BYTES = 72
@@ -151,7 +151,11 @@ def me(player: CurrentPlayer) -> PlayerOut:
 
 @player_router.patch("/me")
 def update_me(body: PlayerUpdate, player: CurrentPlayer, db: Db) -> PlayerOut:
-    for field, value in body.model_dump(exclude_unset=True).items():
+    changes = body.model_dump(exclude_unset=True, exclude_none=True)
+    if "claimed_rating" in changes and db.scalar(select(Attempt.id).where(Attempt.player_id == player.id).limit(1)):
+        # Rating ván là tiên nghiệm của năng lực: đổi sau lần giải đầu tiên sẽ viết lại cả lịch sử năng lực.
+        raise HTTPException(status.HTTP_409_CONFLICT, "Rating ván chỉ khai được trước lần giải đầu tiên")
+    for field, value in changes.items():
         setattr(player, field, value)
     db.commit()
     return PlayerOut.of(player)

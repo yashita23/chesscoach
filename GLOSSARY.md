@@ -75,6 +75,10 @@ _Tránh_: Elo (không nói rõ nền tảng)
 Bộ 12 bài tập người chơi mới làm để hiệu chỉnh năng lực ban đầu.
 _Tránh_: placement test, bài test
 
+**Dải**:
+Khoảng 200 điểm trên thang năng lực (ví dụ 1400–1600). Bài kiểm tra đầu vào có một bộ bài tập cho mỗi dải; nhóm tham chiếu cũng chia theo dải.
+_Tránh_: band, khung
+
 ### Gợi ý
 
 **Buổi luyện**:

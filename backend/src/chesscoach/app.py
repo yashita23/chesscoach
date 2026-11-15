@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -8,6 +9,9 @@ from chesscoach.db import Base, add_missing_columns, make_engine
 from chesscoach.placement import PlacementSets
 from chesscoach.puzzles import PuzzleCatalog
 from chesscoach.recommend import DEFAULT_PRACTICE, PracticeConfig
+
+
+log = logging.getLogger(__name__)
 
 
 def create_app(
@@ -29,7 +33,7 @@ def create_app(
     app.state.session_factory = sessionmaker(engine, expire_on_commit=False)
     app.state.puzzle_catalog = PuzzleCatalog(puzzle_catalog)
     app.state.practice_config = practice_config
-    app.state.placement_sets = PlacementSets.load(placement_sets) if placement_sets else None
+    app.state.placement_sets = _load_placement(placement_sets, app.state.puzzle_catalog) if placement_sets else None
     app.state.calibration = ability_history.CalibrationCache(min_attempts=calibration_min_attempts)
     ability_history.backfill_attempt_snapshots(app.state.session_factory, app.state.puzzle_catalog)
     app.include_router(auth.auth_router)
@@ -38,3 +42,12 @@ def create_app(
     app.include_router(profile.router)
     app.include_router(practice.router)
     return app
+
+
+def _load_placement(path: Path, catalog: PuzzleCatalog) -> PlacementSets:
+    sets = PlacementSets.load(path)
+    kept = sets.restricted_to(catalog.existing_ids(sets.all_ids()))
+    dropped = len(sets.all_ids()) - len(kept.all_ids())
+    if dropped:
+        log.warning("Bỏ %d bài tập của bài kiểm tra đầu vào không có trong kho bài tập %s", dropped, path)
+    return kept

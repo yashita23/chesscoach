@@ -28,6 +28,18 @@ class PlacementSets:
         sets = {int(low): tuple(p["puzzle_id"] for p in items) for low, items in data["sets"].items() if items}
         return cls(band_width=int(data["band_width"]), sets=sets)
 
+    def all_ids(self) -> set[str]:
+        return {pid for ids in self.sets.values() for pid in ids}
+
+    def band_of(self, puzzle_id: str) -> int | None:
+        """Dải chứa bài tập này, nếu nó thuộc một bộ bài kiểm tra nào đó."""
+        return next((low for low, ids in self.sets.items() if puzzle_id in ids), None)
+
+    def restricted_to(self, existing: set[str]) -> "PlacementSets":
+        """Bỏ các bài tập không có trong kho (ví dụ khi bộ bài kiểm tra dựng từ một kho khác); dải rỗng bị bỏ."""
+        sets = {low: kept for low, ids in self.sets.items() if (kept := tuple(p for p in ids if p in existing))}
+        return PlacementSets(band_width=self.band_width, sets=sets)
+
     def band_for(self, theta: float) -> int:
         """Dải chứa θ; θ ngoài mọi dải thì lấy dải gần nhất."""
         lows = sorted(self.sets)
@@ -38,12 +50,19 @@ class PlacementSets:
 @dataclass(frozen=True)
 class PlacementStatus:
     band: int
+    """Mép dưới dải."""
+    band_width: int
     puzzle_ids: tuple[str, ...]
     completed: int
     """Số bài tập của bài kiểm tra đã có lần giải được chốt nhãn."""
     started: bool
     """Dải đã chốt (người chơi đã mở lần giải đầu tiên của bài kiểm tra)."""
     remaining: tuple[str, ...]
+
+    @property
+    def target_rating(self) -> float:
+        """Rating giữa dải: nơi bài tập của bài kiểm tra được chọn."""
+        return self.band + self.band_width / 2
 
 
 def placement_status(db: Session, player: Player, sets: PlacementSets | None) -> PlacementStatus | None:
@@ -62,4 +81,4 @@ def placement_status(db: Session, player: Player, sets: PlacementSets | None) ->
     remaining = tuple(pid for pid in ids if pid not in labeled)
     if not remaining:
         return None
-    return PlacementStatus(band, ids, len(ids) - len(remaining), started, remaining)
+    return PlacementStatus(band, sets.band_width, ids, len(ids) - len(remaining), started, remaining)

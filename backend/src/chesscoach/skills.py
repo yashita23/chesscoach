@@ -143,6 +143,74 @@ def skills_of(themes: Iterable[str]) -> frozenset[str]:
     return frozenset(found) if found else frozenset({MISSED_TACTIC})
 
 
+# Chủ đề Chess.com (bộ Stanford CS398) → kỹ năng, dùng ở lớp đánh giá 1. None là chủ đề mô tả
+# (cấu trúc thế cờ, không phải đòn chiến thuật), giống META_THEMES của Lichess.
+CHESSCOM_THEMES: dict[str, str | None] = {
+    "Hanging Piece": "hanging_piece",
+    "Fork / Double Attack": "fork",
+    "Pin": "pin",
+    "Skewer": "skewer",
+    "X-Ray Attack": "skewer",
+    "Trapped Piece": "trapped_piece",
+    "Discovered Attack": "discovered_attack",
+    "Discovered Check": "discovered_attack",
+    "Double Check": "discovered_attack",
+    "Windmill": "discovered_attack",
+    "Decoy / Deflection": "deflection",
+    "Remove the Defender": "deflection",
+    "Overloading": "deflection",
+    "Interference": "deflection",
+    "Sacrifice": "attraction",
+    "Queen Sacrifice": "attraction",
+    "Exchange Sacrifice": "attraction",
+    "Clearance Sacrifice": "attraction",
+    "Desperado": "attraction",
+    "Zwischenzug": "quiet_move",
+    "Zugzwang": "quiet_move",
+    "En passant": MISSED_TACTIC,
+    "Mate in 1": "mate_in_1",
+    "Mate in 2": "mate_in_n",
+    "Mate in 3+": "mate_in_n",
+    "Back Rank": "back_rank_mate",
+    "Smothered Mate": "mate_patterns",
+    "Mating Net": "mate_patterns",
+    "Basic Checkmates": "mate_patterns",
+    "Advanced Checkmates": "mate_patterns",
+    "Two Rooks Checkmate": "mate_patterns",
+    "Two Bishops Checkmate": "mate_patterns",
+    "Scholar's Mate": "mate_patterns",
+    "Fastest Checkmate": "mate_patterns",
+    "Vulnerable King": "king_attack",
+    "Attacking Castled King": "king_attack",
+    "Promotion": "promotion",
+    "Underpromotion": "promotion",
+    "Passed Pawns": None,  # gắn cho gần nửa số bài tập: mô tả thế cờ, không phải đòn
+    "Pawn Endgame": "pawn_endgame",
+    "Opposition": "pawn_endgame",
+    "Rook Endgame": "rook_endgame",
+    "Defense": "defense",
+    "Perpetual Check": "defense",
+    "Stalemate": "defense",
+    "Rooks on Seventh": None,
+    "Doubled Rook": None,
+    "Battery": None,
+    "Alekhine's Gun": None,
+    "Knight Outpost": None,
+    "Bishop Pair": None,
+    "Fianchetto": None,
+    "Opposite Colored Bishops": None,
+    "Simple": None,
+    "Simplification": None,
+    "Endgame Tactics": None,
+}
+
+
+def skills_of_chesscom(themes: Iterable[str]) -> frozenset[str]:
+    """Như `skills_of`, cho chủ đề Chess.com. Chủ đề lạ coi như chủ đề mô tả."""
+    found = {skill for t in themes if (skill := CHESSCOM_THEMES.get(t.strip())) is not None}
+    return frozenset(found) if found else frozenset({MISSED_TACTIC})
+
+
 def _check() -> None:
     themes = [t for s in SKILLS for t in s.themes]
     assert len(themes) == len(set(themes)), "mỗi chủ đề chỉ thuộc một kỹ năng"
@@ -150,6 +218,7 @@ def _check() -> None:
     assert {s.group for s in SKILLS} == {g.id for g in GROUPS}
     assert all(a in SKILLS_BY_ID and b in SKILLS_BY_ID for a, b in PREREQUISITES)
     assert 15 <= len(SKILLS) <= 20
+    assert all(s is None or s in SKILLS_BY_ID for s in CHESSCOM_THEMES.values())
 
 
 _check()

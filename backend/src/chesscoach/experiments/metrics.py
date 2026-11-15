@@ -14,6 +14,12 @@ def sigmoid(z: FloatArray) -> FloatArray:
     return result
 
 
+def logit(p: FloatArray) -> FloatArray:
+    q = np.clip(p, 1e-6, 1 - 1e-6)
+    result: FloatArray = np.log(q / (1 - q))
+    return result
+
+
 @dataclass(frozen=True)
 class Scores:
     accuracy: float

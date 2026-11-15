@@ -1,0 +1,111 @@
+{
+  "source": "Elo theo kỹ năng trên toàn bộ bộ Stanford (thang rating Chess.com), sau lần giải cuối",
+  "min_attempts_per_skill": 10,
+  "theta": {
+    "players": 1068,
+    "mean": 1488.2,
+    "std": 365.4
+  },
+  "skill_deviation": {
+    "hanging_piece": {
+      "players": 448,
+      "mean": -29.5,
+      "std": 43.3
+    },
+    "fork": {
+      "players": 847,
+      "mean": -23.7,
+      "std": 61.8
+    },
+    "pin": {
+      "players": 911,
+      "mean": 3.4,
+      "std": 61.5
+    },
+    "skewer": {
+      "players": 525,
+      "mean": -33.8,
+      "std": 50.4
+    },
+    "trapped_piece": {
+      "players": 411,
+      "mean": -13.5,
+      "std": 49.2
+    },
+    "discovered_attack": {
+      "players": 733,
+      "mean": 51.9,
+      "std": 64.4
+    },
+    "deflection": {
+      "players": 616,
+      "mean": -33.2,
+      "std": 42.8
+    },
+    "attraction": {
+      "players": 573,
+      "mean": -16.8,
+      "std": 31.9
+    },
+    "quiet_move": {
+      "players": 263,
+      "mean": -21.5,
+      "std": 30.8
+    },
+    "missed_tactic": {
+      "players": 999,
+      "mean": 87.2,
+      "std": 86.5
+    },
+    "mate_in_1": {
+      "players": 224,
+      "mean": -20.2,
+      "std": 64.8
+    },
+    "mate_in_n": {
+      "players": 848,
+      "mean": -30.4,
+      "std": 70.6
+    },
+    "back_rank_mate": {
+      "players": 388,
+      "mean": -11.4,
+      "std": 24.8
+    },
+    "mate_patterns": {
+      "players": 575,
+      "mean": -21.9,
+      "std": 38.0
+    },
+    "king_attack": {
+      "players": 866,
+      "mean": -8.1,
+      "std": 55.1
+    },
+    "promotion": {
+      "players": 702,
+      "mean": -5.3,
+      "std": 51.1
+    },
+    "pawn_endgame": {
+      "players": 812,
+      "mean": 84.7,
+      "std": 70.1
+    },
+    "rook_endgame": {
+      "players": 10,
+      "mean": 30.6,
+      "std": 37.4
+    },
+    "other_endgame": {
+      "players": 0,
+      "mean": null,
+      "std": null
+    },
+    "defense": {
+      "players": 391,
+      "mean": -26.3,
+      "std": 42.9
+    }
+  }
+}

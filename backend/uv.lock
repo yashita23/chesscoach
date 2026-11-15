@@ -196,6 +196,8 @@ dependencies = [
     { name = "chess" },
     { name = "duckdb" },
     { name = "fastapi" },
+    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "numpy", version = "2.5.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "pydantic", extra = ["email"] },
     { name = "python-dotenv" },
     { name = "sqlalchemy" },
@@ -206,8 +208,6 @@ dependencies = [
 dev = [
     { name = "httpx" },
     { name = "mypy" },
-    { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
-    { name = "numpy", version = "2.5.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "pytest" },
 ]
 
@@ -217,6 +217,7 @@ requires-dist = [
     { name = "chess", specifier = ">=1.11.2" },
     { name = "duckdb", specifier = ">=2.0.0" },
     { name = "fastapi", specifier = ">=0.162.7" },
+    { name = "numpy", specifier = ">=2.4.6" },
     { name = "pydantic", extras = ["email"], specifier = ">=2.14.3" },
     { name = "python-dotenv", specifier = ">=1.2.4" },
     { name = "sqlalchemy", specifier = ">=2.1.8" },
@@ -227,7 +228,6 @@ requires-dist = [
 dev = [
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "mypy", specifier = ">=2.4.1" },
-    { name = "numpy", specifier = ">=2.4.6" },
     { name = "pytest", specifier = ">=9.2.0" },
 ]
 

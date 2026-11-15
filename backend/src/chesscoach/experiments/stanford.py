@@ -1,4 +1,4 @@
-"""Bộ Stanford CS398 Chess.com Knowledge Tracing: đọc dữ liệu, chia train/test theo thời gian, đo dự đoán.
+"""Bộ Stanford CS398 Chess.com Knowledge Tracing: đọc dữ liệu và chia train/test theo thời gian.
 
 Dữ liệu không nằm trong repo. Tải starter bundle từ
 https://web.stanford.edu/class/cs398/handouts/knowledge-tracing/starter_bundle.zip rồi giải nén vào
@@ -8,70 +8,74 @@ Tập test gốc ẩn nhãn, nên mỗi người chơi được chia lại: 20% 
 """
 
 import json
-import math
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 import duckdb
 import numpy as np
 import numpy.typing as npt
+
+from chesscoach.experiments.metrics import FloatArray
 
 RAW_DIR = Path(__file__).resolve().parents[3] / "data" / "stanford" / "raw"
 SPLIT_DIR = RAW_DIR.parent / "split"
 TEST_FRACTION = 0.2
 DEFAULT_SEED = 398
 
-FloatArray = npt.NDArray[np.float64]
+Part = Literal["train", "test"]
+_COLUMNS = (
+    "user_id, tactics_problem_id, create_date, seq, pre_rating, puzzle_rating_original, "
+    "puzzle_rating_ours, puzzle_move_count, target_time, solve_time, is_correct"
+)
 
 
 def _sql_path(path: Path) -> str:
     return str(path).replace("\\", "/").replace("'", "''")
 
 
-def make_split(raw_dir: Path = RAW_DIR, out_dir: Path = SPLIT_DIR, seed: int = DEFAULT_SEED) -> dict[str, int]:
+def make_split(raw_dir: Path = RAW_DIR, out_dir: Path = SPLIT_DIR, seed: int = DEFAULT_SEED) -> dict[Part, int]:
     """Chia train.csv theo thời gian trong từng người chơi và ghi ra parquet.
 
-    Mỗi người chơi: sắp lần giải theo create_date (lần giải trùng thời điểm được xếp theo một hoán vị
-    cố định theo `seed`), lấy ceil(20%) lần giải cuối làm test. Cùng seed thì ra đúng phép chia đó.
+    Mỗi người chơi: sắp lần giải theo create_date, lấy ceil(20%) lần giải cuối làm test. Lần giải trùng
+    thời điểm được xếp theo hash(số dòng trong file, seed), nên cùng seed thì ra đúng phép chia đó, kể cả
+    thứ tự `seq`. Trên bộ hiện tại chỉ 12 dòng trùng thời điểm, nên seed hầu như không đổi phép chia.
     """
     out_dir.mkdir(parents=True, exist_ok=True)
     con = duckdb.connect()
-    con.execute("SELECT setseed(?)", [1 / (1 + seed)])
     con.execute(
         f"""
         CREATE TABLE ordered AS
         SELECT *,
-               row_number() OVER (PARTITION BY user_id ORDER BY create_date, tiebreak) AS seq,
+               row_number() OVER (PARTITION BY user_id ORDER BY create_date, hash(file_row, {int(seed)})) AS seq,
                count(*) OVER (PARTITION BY user_id) AS n_user
-        FROM (SELECT *, hash(user_id, tactics_problem_id, create_date, {seed}) AS tiebreak
+        FROM (SELECT *, row_number() OVER () AS file_row
               FROM read_csv('{_sql_path(raw_dir / "train.csv")}', header = true))
         """
     )
-    split = f"seq > n_user - ceil(n_user * {TEST_FRACTION})"
-    columns = (
-        "user_id, tactics_problem_id, create_date, seq, pre_rating, puzzle_rating_original, "
-        "puzzle_rating_ours, puzzle_move_count, target_time, solve_time, is_correct"
-    )
-    for name, cond in (("train", f"NOT ({split})"), ("test", split)):
+    in_test = f"seq > n_user - ceil(n_user * {TEST_FRACTION})"
+    parts: dict[Part, str] = {"train": f"NOT ({in_test})", "test": in_test}
+    counts: dict[Part, int] = {}
+    for part, condition in parts.items():
         con.execute(
-            f"COPY (SELECT {columns} FROM ordered WHERE {cond} ORDER BY user_id, seq) "
-            f"TO '{_sql_path(out_dir / f'{name}.parquet')}' (FORMAT parquet)"
+            f"COPY (SELECT {_COLUMNS} FROM ordered WHERE {condition} ORDER BY user_id, seq) "
+            f"TO '{_sql_path(out_dir / f'{part}.parquet')}' (FORMAT parquet)"
         )
-    counts = {
-        name: int(con.execute(f"SELECT count(*) FROM ordered WHERE {cond}").fetchone()[0])  # type: ignore[index]
-        for name, cond in (("train", f"NOT ({split})"), ("test", split))
-    }
-    manifest = {"seed": seed, "test_fraction": TEST_FRACTION, **counts}
+        row = con.execute(f"SELECT count(*) FROM ordered WHERE {condition}").fetchone()
+        counts[part] = int(row[0]) if row else 0
+    manifest = {"seed": seed, "test_fraction": TEST_FRACTION, "train": counts["train"], "test": counts["test"]}
     (out_dir / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
     return counts
 
 
 @dataclass(frozen=True)
-class Split:
-    """Một phần của phép chia, dạng cột numpy."""
+class SplitPart:
+    """Một phần (train hoặc test) của phép chia, dạng cột numpy."""
 
     user_id: npt.NDArray[np.int64]
+    tactics_problem_id: npt.NDArray[np.int64]
     pre_rating: FloatArray
+    """Rating giải bài tập (tactics rating) của người chơi trên Chess.com, trước lần giải."""
     puzzle_rating_original: FloatArray
     puzzle_rating_ours: FloatArray
     is_correct: FloatArray
@@ -79,14 +83,25 @@ class Split:
     def __len__(self) -> int:
         return len(self.is_correct)
 
+    def where(self, mask: npt.NDArray[np.bool_]) -> "SplitPart":
+        return SplitPart(
+            self.user_id[mask],
+            self.tactics_problem_id[mask],
+            self.pre_rating[mask],
+            self.puzzle_rating_original[mask],
+            self.puzzle_rating_ours[mask],
+            self.is_correct[mask],
+        )
 
-def load_split(name: str, split_dir: Path = SPLIT_DIR) -> Split:
+
+def load_split(part: Part, split_dir: Path = SPLIT_DIR) -> SplitPart:
     rows = duckdb.connect().execute(
-        "SELECT user_id, pre_rating, puzzle_rating_original, puzzle_rating_ours, is_correct "
-        f"FROM read_parquet('{_sql_path(split_dir / f'{name}.parquet')}') ORDER BY user_id, seq"
+        "SELECT user_id, tactics_problem_id, pre_rating, puzzle_rating_original, puzzle_rating_ours, is_correct "
+        f"FROM read_parquet('{_sql_path(split_dir / f'{part}.parquet')}') ORDER BY user_id, seq"
     ).fetchnumpy()
-    return Split(
+    return SplitPart(
         user_id=rows["user_id"].astype(np.int64),
+        tactics_problem_id=rows["tactics_problem_id"].astype(np.int64),
         pre_rating=rows["pre_rating"].astype(np.float64),
         puzzle_rating_original=rows["puzzle_rating_original"].astype(np.float64),
         puzzle_rating_ours=rows["puzzle_rating_ours"].astype(np.float64),
@@ -94,56 +109,9 @@ def load_split(name: str, split_dir: Path = SPLIT_DIR) -> Split:
     )
 
 
-@dataclass(frozen=True)
-class Scores:
-    accuracy: float
-    auc: float
-    log_loss: float
-    mean_p: float
-
-
-def score(p: FloatArray, y: FloatArray) -> Scores:
-    """Accuracy (ngưỡng 0,5, giống leaderboard), AUC và log-loss."""
-    p = np.clip(p, 1e-6, 1 - 1e-6)
-    accuracy = float(np.mean((p >= 0.5) == (y == 1)))
-    log_loss = float(-np.mean(y * np.log(p) + (1 - y) * np.log(1 - p)))
-    return Scores(accuracy, auc(p, y), log_loss, float(np.mean(p)))
-
-
-def auc(p: FloatArray, y: FloatArray) -> float:
-    """AUC theo hạng (Mann–Whitney), xử lý điểm bằng nhau bằng hạng trung bình."""
-    order = np.argsort(p, kind="mergesort")
-    ranks = np.empty(len(p), dtype=np.float64)
-    sorted_p = p[order]
-    i = 0
-    while i < len(p):
-        j = i
-        while j + 1 < len(p) and sorted_p[j + 1] == sorted_p[i]:
-            j += 1
-        ranks[order[i : j + 1]] = (i + j) / 2 + 1
-        i = j + 1
-    pos = y == 1
-    n_pos, n_neg = int(pos.sum()), int((~pos).sum())
-    return float((ranks[pos].sum() - n_pos * (n_pos + 1) / 2) / (n_pos * n_neg))
-
-
-def elo(player_rating: FloatArray, puzzle_rating: FloatArray) -> FloatArray:
-    """Công thức Elo sách giáo khoa: 1 / (1 + 10^((rating bài tập − rating người chơi) / 400))."""
-    result: FloatArray = 1.0 / (1.0 + 10.0 ** ((puzzle_rating - player_rating) / 400.0))
-    return result
-
-
-def fit_logistic(x: FloatArray, y: FloatArray, iterations: int = 25) -> tuple[float, float]:
-    """Hồi quy logistic một biến p = σ(a + b·x), giải bằng Newton. Trả về (a, b)."""
-    a, b = 0.0, 0.0
-    for _ in range(iterations):
-        z = np.clip(a + b * x, -30, 30)
-        p = 1 / (1 + np.exp(-z))
-        w = p * (1 - p)
-        g = np.array([np.sum(y - p), np.sum((y - p) * x)])
-        h = np.array([[np.sum(w), np.sum(w * x)], [np.sum(w * x), np.sum(w * x * x)]])
-        step = np.linalg.solve(h, g)
-        a, b = a + float(step[0]), b + float(step[1])
-        if math.hypot(*step) < 1e-10:
-            break
-    return a, b
+def hidden_test_puzzles(raw_dir: Path = RAW_DIR) -> npt.NDArray[np.int64]:
+    """Các bài tập có trong test.csv gốc (leaderboard), để đo lại trên cùng tập bài tập đó."""
+    rows = duckdb.connect().execute(
+        f"SELECT DISTINCT tactics_problem_id FROM read_csv('{_sql_path(raw_dir / 'test.csv')}', header = true)"
+    ).fetchnumpy()
+    return rows["tactics_problem_id"].astype(np.int64)

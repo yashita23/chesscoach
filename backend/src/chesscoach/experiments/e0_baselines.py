@@ -2,24 +2,52 @@
 
     uv run python -m chesscoach.experiments.e0_baselines [--seed 398]
 
-In ra bảng Markdown để chép vào docs/experiments/e0-stanford.md.
+In ra bảng Markdown, dùng nguyên văn trong docs/experiments/e0-stanford.md.
 """
 
 import argparse
 import sys
+from collections.abc import Callable
 
 import numpy as np
 
-from chesscoach.experiments.stanford import (
-    DEFAULT_SEED,
-    FloatArray,
-    Scores,
-    elo,
-    fit_logistic,
-    load_split,
-    make_split,
-    score,
-)
+from chesscoach.experiments.metrics import Calibration, FloatArray, elo_expected_score, score
+from chesscoach.experiments.stanford import DEFAULT_SEED, SplitPart, hidden_test_puzzles, load_split, make_split
+
+Baseline = Callable[[SplitPart], FloatArray]
+
+
+def baselines(train: SplitPart) -> dict[str, Baseline]:
+    """Các baseline; bản hiệu chỉnh chỉ fit trên train."""
+    calibrated_original = Calibration.fit(train.pre_rating - train.puzzle_rating_original, train.is_correct)
+    calibrated_ours = Calibration.fit(train.pre_rating - train.puzzle_rating_ours, train.is_correct)
+    base_rate = float(train.is_correct.mean())
+    return {
+        "Luôn đoán tỉ lệ đúng của train": lambda s: np.full(len(s), base_rate),
+        "Elo sách giáo khoa: pre_rating vs puzzle_rating_original": lambda s: elo_expected_score(
+            s.pre_rating, s.puzzle_rating_original
+        ),
+        (
+            "Rating Chess.com hiệu chỉnh: pre_rating vs puzzle_rating_original "
+            f"(a = {calibrated_original.a:.3f}, b = {calibrated_original.b:.3f})"
+        ): lambda s: calibrated_original.predict(s.pre_rating - s.puzzle_rating_original),
+        "*Elo sách giáo khoa: pre_rating vs puzzle_rating_ours*": lambda s: elo_expected_score(
+            s.pre_rating, s.puzzle_rating_ours
+        ),
+        (
+            "*Hiệu chỉnh: pre_rating vs puzzle_rating_ours "
+            f"(a = {calibrated_ours.a:.3f}, b = {calibrated_ours.b:.3f})*"
+        ): lambda s: calibrated_ours.predict(s.pre_rating - s.puzzle_rating_ours),
+    }
+
+
+def print_table(title: str, part: SplitPart, models: dict[str, Baseline]) -> None:
+    print(f"\n{title}: {len(part):,} lần giải, tỉ lệ đúng {part.is_correct.mean():.4f}\n")
+    print("| Baseline | Accuracy | AUC | Log-loss | p trung bình |")
+    print("| --- | ---: | ---: | ---: | ---: |")
+    for name, predict in models.items():
+        s = score(predict(part), part.is_correct)
+        print(f"| {name} | {s.accuracy:.4f} | {s.auc:.4f} | {s.log_loss:.4f} | {s.mean_p:.3f} |")
 
 
 def main() -> None:
@@ -29,28 +57,12 @@ def main() -> None:
     args = parser.parse_args()
 
     counts = make_split(seed=args.seed)
+    print(f"Phép chia (seed {args.seed}): train {counts['train']:,}, test {counts['test']:,} lần giải")
     train, test = load_split("train"), load_split("test")
-    print(f"Phép chia (seed {args.seed}): train {counts['train']:,} lần giải, test {counts['test']:,} lần giải")
-    print(f"Tỉ lệ đúng: train {train.is_correct.mean():.4f}, test {test.is_correct.mean():.4f}\n")
-
-    rows: list[tuple[str, Scores]] = []
-
-    def add(name: str, p: FloatArray) -> None:
-        rows.append((name, score(p, test.is_correct)))
-
-    add("Luôn đoán tỉ lệ đúng của train", np.full(len(test), train.is_correct.mean()))
-    add("Elo sách giáo khoa (rating bài tập Chess.com)", elo(test.pre_rating, test.puzzle_rating_original))
-    add("Elo sách giáo khoa (puzzle_rating_ours)", elo(test.pre_rating, test.puzzle_rating_ours))
-    for column, label in (("puzzle_rating_original", "Chess.com"), ("puzzle_rating_ours", "ours")):
-        x_train = (train.pre_rating - getattr(train, column)) / 400
-        a, b = fit_logistic(x_train, train.is_correct)
-        x_test = (test.pre_rating - getattr(test, column)) / 400
-        add(f"Rating Chess.com hiệu chỉnh trên train ({label}; a={a:.3f}, b={b:.3f})", 1 / (1 + np.exp(-(a + b * x_test))))
-
-    print("| Baseline | Accuracy | AUC | Log-loss | p trung bình |")
-    print("| --- | ---: | ---: | ---: | ---: |")
-    for name, s in rows:
-        print(f"| {name} | {s.accuracy:.4f} | {s.auc:.4f} | {s.log_loss:.4f} | {s.mean_p:.3f} |")
+    models = baselines(train)
+    print_table("Toàn bộ phần test", test, models)
+    on_hidden = test.where(np.isin(test.tactics_problem_id, hidden_test_puzzles()))
+    print_table("Phần test, chỉ các bài tập có trong test.csv gốc", on_hidden, models)
 
 
 if __name__ == "__main__":

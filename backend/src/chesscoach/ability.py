@@ -167,6 +167,10 @@ class ProbabilityCalibration:
     def apply(self, p: float) -> float:
         return _sigmoid(self.a + self.b * _logit(p))
 
+    def invert(self, p: float) -> float:
+        """Xác suất thô mà sau hiệu chỉnh cho ra `p`."""
+        return _sigmoid((_logit(p) - self.a) / self.b)
+
     @classmethod
     def fit(
         cls, predictions: list[float], outcomes: list[bool], prior_weight: float = 50.0

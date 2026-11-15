@@ -10,7 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
-from chesscoach.db import LoginSession, Player
+from chesscoach.db import DEFAULT_DAILY_MINUTES, LoginSession, Player
 
 SESSION_COOKIE = "chesscoach_session"
 BCRYPT_MAX_BYTES = 72
@@ -51,10 +51,19 @@ class LoginRequest(BaseModel):
 class PlayerOut(BaseModel):
     email: str
     display_name: str
+    daily_minutes: int
 
     @classmethod
     def of(cls, player: Player) -> "PlayerOut":
-        return cls(email=player.email, display_name=player.display_name)
+        return cls(
+            email=player.email,
+            display_name=player.display_name,
+            daily_minutes=player.daily_minutes or DEFAULT_DAILY_MINUTES,
+        )
+
+
+class PlayerUpdate(BaseModel):
+    daily_minutes: int = Field(ge=5, le=180)
 
 
 def _token_hash(token: str) -> str:
@@ -133,4 +142,11 @@ def logout(db: Db, response: Response, token: SessionToken = None) -> None:
 
 @player_router.get("/me")
 def me(player: CurrentPlayer) -> PlayerOut:
+    return PlayerOut.of(player)
+
+
+@player_router.patch("/me")
+def update_me(body: PlayerUpdate, player: CurrentPlayer, db: Db) -> PlayerOut:
+    player.daily_minutes = body.daily_minutes
+    db.commit()
     return PlayerOut.of(player)

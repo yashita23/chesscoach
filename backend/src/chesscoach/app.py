@@ -3,7 +3,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from sqlalchemy.orm import sessionmaker
 
-from chesscoach import ability_history, attempts, auth, profile
+from chesscoach import ability_history, attempts, auth, practice, profile
 from chesscoach.db import Base, add_missing_columns, make_engine
 from chesscoach.puzzles import PuzzleCatalog
 
@@ -23,4 +23,5 @@ def create_app(database_url: str, puzzle_catalog: Path, calibration_min_attempts
     app.include_router(auth.player_router)
     app.include_router(attempts.router)
     app.include_router(profile.router)
+    app.include_router(practice.router)
     return app

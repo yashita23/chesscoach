@@ -94,8 +94,27 @@ class PuzzleCatalog:
         )
         return None if row is None else _puzzle(row)
 
+    def candidates(
+        self, min_rating: float, max_rating: float, exclude: Collection[str], limit: int, seed: str
+    ) -> list[Puzzle]:
+        """Tối đa `limit` bài tập phổ biến trong khoảng rating, chưa nằm trong `exclude`.
+
+        Thứ tự giả ngẫu nhiên nhưng cố định theo `seed`: cùng seed thì cùng danh sách.
+        """
+        rows = (
+            self._con.cursor()
+            .execute(
+                f"SELECT {_SELECT} FROM puzzles "
+                f"WHERE {POPULAR} AND Rating BETWEEN ? AND ? AND NOT list_contains(?, PuzzleId) "
+                "ORDER BY hash(PuzzleId || ?) LIMIT ?",
+                [min_rating, max_rating, list(exclude), seed, limit],
+            )
+            .fetchall()
+        )
+        return [_puzzle(row) for row in rows]
+
     def random_excluding(self, exclude: Collection[str]) -> Puzzle | None:
-        """Một bài tập phổ biến bất kỳ chưa nằm trong `exclude`; tạm dùng cho tới khi có buổi luyện."""
+        """Một bài tập phổ biến bất kỳ chưa nằm trong `exclude`; dùng khi buổi luyện không còn bài tập vừa sức."""
         row = (
             self._con.cursor()
             .execute(

@@ -1,6 +1,7 @@
 export type Player = {
   email: string
   display_name: string
+  daily_minutes: number
 }
 
 export class ApiError extends Error {
@@ -98,6 +99,23 @@ export type Profile = {
   groups: SkillGroupProfile[]
 }
 
+export type SessionItem = {
+  puzzle_id: string
+  fen: string
+  player_color: Color
+  rating: number
+  predicted_p: number
+  skills: { id: string; name: string }[]
+  score: { total: number; fit: number; exploration: number; quality: number }
+}
+
+export type Session = {
+  daily_minutes: number
+  size: number
+  target_rating: number
+  items: SessionItem[]
+}
+
 export const api = {
   me: () => request<Player>('GET', '/me'),
   register: (email: string, password: string, display_name: string) =>
@@ -110,4 +128,6 @@ export const api = {
   playMove: (attemptId: number, uci: string) =>
     request<MoveResult>('POST', `/attempts/${attemptId}/moves`, { uci }),
   profile: () => request<Profile>('GET', '/profile'),
+  session: () => request<Session>('GET', '/session'),
+  updateMe: (daily_minutes: number) => request<Player>('PATCH', '/me', { daily_minutes }),
 }

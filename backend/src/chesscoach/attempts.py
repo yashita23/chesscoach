@@ -1,38 +1,24 @@
 """API làm bài tập: chọn bài, mở lần giải, gửi từng nước, xem lịch sử lần giải."""
 
 from datetime import UTC, datetime
-from typing import Annotated, Literal
+from typing import Literal
 
 import chess
-from fastapi import Depends, HTTPException, Request, Response, status
+from fastapi import HTTPException, Response, status
 from pydantic import BaseModel
 from sqlalchemy import select
 
 from chesscoach.ability import predict
 from chesscoach.auth import CurrentPlayer, Db, player_api_router
 from chesscoach.db import Attempt
-from chesscoach.ability_history import CalibrationCache, player_ability
+from chesscoach.ability_history import player_ability
+from chesscoach.deps import Calibration, Catalog
+from chesscoach.practice import build_session
 from chesscoach.puzzles import Puzzle, PuzzleCatalog
 from chesscoach.skills import skills_of
 from chesscoach.solving import IllegalMove, board_at, judge, player_color
 
 router = player_api_router()
-
-
-def get_catalog(request: Request) -> PuzzleCatalog:
-    catalog: PuzzleCatalog = request.app.state.puzzle_catalog
-    return catalog
-
-
-Catalog = Annotated[PuzzleCatalog, Depends(get_catalog)]
-
-
-def get_calibration_cache(request: Request) -> CalibrationCache:
-    cache: CalibrationCache = request.app.state.calibration
-    return cache
-
-
-Calibration = Annotated[CalibrationCache, Depends(get_calibration_cache)]
 
 
 def _now() -> datetime:
@@ -51,8 +37,8 @@ class NextPuzzleOut(BaseModel):
 
 
 @router.get("/puzzles/next")
-def next_puzzle(player: CurrentPlayer, db: Db, catalog: Catalog) -> NextPuzzleOut:
-    """Bài tập đang làm dở (chưa có nhãn) nếu có; nếu không thì một bài tập chưa làm."""
+def next_puzzle(player: CurrentPlayer, db: Db, catalog: Catalog, calibration: Calibration) -> NextPuzzleOut:
+    """Bài tập đang làm dở (chưa có nhãn) nếu có; nếu không thì bài tập đầu tiên của buổi luyện."""
     unfinished = db.scalars(
         select(Attempt.puzzle_id)
         .where(Attempt.player_id == player.id, Attempt.correct.is_(None))
@@ -60,6 +46,10 @@ def next_puzzle(player: CurrentPlayer, db: Db, catalog: Catalog) -> NextPuzzleOu
     ).first()
     if unfinished is not None:
         return NextPuzzleOut(puzzle_id=unfinished)
+    session = build_session(player, db, catalog, calibration.get(db))
+    if session.items:
+        return NextPuzzleOut(puzzle_id=session.items[0].puzzle_id)
+    # Hết bài tập vừa sức trong khoảng rating: lấy một bài tập phổ biến bất kỳ chưa làm.
     done = db.scalars(select(Attempt.puzzle_id).where(Attempt.player_id == player.id)).all()
     puzzle = catalog.random_excluding(done)
     if puzzle is None:

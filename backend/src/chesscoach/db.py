@@ -7,6 +7,9 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.pool import StaticPool
 
 
+DEFAULT_DAILY_MINUTES = 30
+
+
 class Base(DeclarativeBase):
     pass
 
@@ -19,6 +22,8 @@ class Player(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     email: Mapped[str] = mapped_column(String(320), unique=True)
     display_name: Mapped[str] = mapped_column(String(100))
+    daily_minutes: Mapped[int | None] = mapped_column(default=DEFAULT_DAILY_MINUTES)
+    """Thời gian luyện mỗi ngày (phút); None ở DB cũ thì coi như mặc định."""
     password_hash: Mapped[bytes]
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 

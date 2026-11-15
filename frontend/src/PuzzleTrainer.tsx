@@ -3,6 +3,7 @@ import { Chess } from 'chess.js'
 import { Chessboard } from 'react-chessboard'
 import type { Arrow, Piece, PromotionPieceOption, Square } from 'react-chessboard/dist/chessboard/types'
 import { api, ApiError, type Attempt } from './api'
+import SessionPanel from './SessionPanel'
 
 const OPPONENT_DELAY_MS = 450
 
@@ -37,6 +38,8 @@ export default function PuzzleTrainer() {
   // Đã đi sai trong lần giải này: nhãn đã chốt là sai, người chơi đang đi tiếp lời giải.
   const [failed, setFailed] = useState(false)
   const timer = useRef<number | undefined>(undefined)
+  // Tăng mỗi khi lần giải có nhãn, để danh sách buổi luyện tính lại.
+  const [sessionVersion, setSessionVersion] = useState(0)
 
   const later = useCallback((fn: () => void) => {
     window.clearTimeout(timer.current)
@@ -98,9 +101,10 @@ export default function PuzzleTrainer() {
       if (r.verdict === 'wrong') {
         setFen(before)
         setLastMove(null)
+        if (!failed) setSessionVersion((v) => v + 1) // nhãn vừa được chốt: buổi luyện tính lại
         setFailed(true)
         if (r.expected_move) setArrow([[...squares(r.expected_move), 'rgb(47, 111, 78)']])
-        setFeedback({ tone: 'bad', text: 'Chưa đúng. Mũi tên chỉ nước đúng — đi tiếp lời giải nhé.' })
+        setFeedback({ tone: 'bad', text: 'Chưa đúng. Mũi tên chỉ nước đúng, đi tiếp lời giải nhé.' })
         setPhase({ kind: 'turn' })
         return
       }
@@ -113,6 +117,7 @@ export default function PuzzleTrainer() {
             : { tone: 'info', text: 'Đã đi hết lời giải. Lần giải này được tính là sai.' },
         )
         setPhase({ kind: 'done', correct })
+        if (!failed) setSessionVersion((v) => v + 1)
         return
       }
       setFeedback({ tone: 'good', text: failed ? 'Đúng nước lời giải, đi tiếp.' : 'Đúng! Đi tiếp.' })
@@ -196,6 +201,7 @@ export default function PuzzleTrainer() {
             Bài tập tiếp theo
           </button>
         )}
+        <SessionPanel version={sessionVersion} current={attempt?.puzzle_id ?? null} />
       </aside>
     </section>
   )

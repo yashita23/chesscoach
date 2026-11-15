@@ -347,3 +347,90 @@ table.skills {
 .radar-missing {
   font-style: italic;
 }
+
+.session {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.session-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.session-head h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.minutes {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.minutes select {
+  font: inherit;
+  padding: 2px 4px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.session-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 2px;
+  max-height: 320px;
+  overflow-y: auto;
+  font-size: 0.85rem;
+  counter-reset: item;
+}
+
+.session-list li {
+  display: grid;
+  grid-template-columns: 2.2em 3.2em minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: baseline;
+  padding: 3px 6px;
+  border-radius: 4px;
+  counter-increment: item;
+}
+
+.session-list li::before {
+  content: counter(item) ".";
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.session-list li.current {
+  background: var(--bg);
+  outline: 1px solid var(--accent);
+}
+
+.session-rating,
+.session-p {
+  font-variant-numeric: tabular-nums;
+}
+
+.session-skills {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-p {
+  color: var(--muted);
+}

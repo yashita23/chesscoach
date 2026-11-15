@@ -2,7 +2,7 @@
 
 Ngày chạy: 15/11/2026. Ticket: #16. Dữ liệu và phép chia: [E0](e0-stanford.md).
 
-**Kết luận**
+**Kết luận** (cấu hình ban đầu `E1_CONFIG`; bản đã tinh chỉnh xem [E1b](e1b-tuning.md))
 
 1. **Elo theo kỹ năng hơn Elo chung và BKT trên cả ba chỉ số:** +1,9 điểm accuracy và khoảng +0,02 AUC. Theo dõi năng lực theo từng kỹ năng có ích, nên kết quả **ủng hộ ADR 0002**.
 2. **IRT tốt nhất trên cả ba chỉ số:** 61,1%, AUC 0,659, log-loss 0,656. Lợi thế của IRT đến từ việc nó **học lại độ khó của từng bài tập**. Điều này hợp với ghi chú của bộ dữ liệu rằng rating bài tập Chess.com bị lệch.

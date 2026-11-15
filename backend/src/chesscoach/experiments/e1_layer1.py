@@ -28,7 +28,7 @@ import duckdb
 import numpy as np
 import numpy.typing as npt
 
-from chesscoach.ability import Ability, Observation, predict, update
+from chesscoach.ability import E1_CONFIG, Ability, Observation, predict, update
 from chesscoach.experiments.metrics import Calibration, FloatArray, Platt, score, sigmoid
 from chesscoach.experiments.stanford import RAW_DIR, SPLIT_DIR
 from chesscoach.skills import SKILLS, skills_of_chesscom
@@ -88,7 +88,7 @@ def run_elo(data: Attempts, with_skills: bool) -> tuple[FloatArray, dict[int, Ab
     no_skills: frozenset[str] = frozenset()
     for i in range(len(data)):
         user = int(data.user_id[i])
-        ability = abilities.get(user) or Ability(theta=float(data.pre_rating[i]))
+        ability = abilities.get(user) or Ability(theta=float(data.pre_rating[i]), config=E1_CONFIG)
         skills = data.skills[i] if with_skills else no_skills
         p[i] = predict(ability, skills, data.puzzle_rating[i])
         abilities[user] = update(ability, Observation(skills, data.puzzle_rating[i], bool(data.is_correct[i])))
@@ -208,7 +208,7 @@ def cmd_distribution(min_attempts: int = 10) -> None:
     skills = {}
     for s in SKILLS:
         deviations = np.array(
-            [a.skill(s.id).effective_deviation for a in abilities.values() if a.skill(s.id).attempts >= min_attempts]
+            [a.skill_deviation(s.id) for a in abilities.values() if a.skill(s.id).attempts >= min_attempts]
         )
         skills[s.id] = {
             "players": int(len(deviations)),

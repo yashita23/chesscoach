@@ -22,10 +22,11 @@ def skill(prof: dict[str, Any], skill_id: str) -> dict[str, Any]:
 
 
 def test_nguoi_choi_moi_du_doan_theo_cong_thuc_elo(player: TestClient) -> None:
-    # θ = 1500, mọi độ lệch kỹ năng = 0: p = 1 / (1 + 10^((1699 - 1500) / 400)) ≈ 0.2413
+    # θ = 1500, mọi độ lệch kỹ năng = 0, thang s gấp 3 lần Elo (E1b):
+    # p = 1 / (1 + 10^((1699 − 1500) / 1200)) ≈ 0.4057
     attempt = start(player, PUZZLE_1699)
 
-    assert abs(attempt["predicted_p"] - 0.2413) < 1e-3
+    assert abs(attempt["predicted_p"] - 0.4057) < 1e-3
 
 
 def test_ho_so_nguoi_choi_moi_chua_du_du_lieu(player: TestClient) -> None:

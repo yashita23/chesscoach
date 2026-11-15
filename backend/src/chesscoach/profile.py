@@ -67,7 +67,7 @@ def get_profile(player: CurrentPlayer, db: Db) -> ProfileOut:
                 description=s.description,
                 group=s.group,
                 ability=round(skill_ability, 1),
-                deviation=round(state.effective_deviation, 1),
+                deviation=round(ability.skill_deviation(s.id), 1),
                 ci=Interval.around(skill_ability, ability.skill_sigma(s.id)),
                 attempts=state.attempts,
                 enough_data=state.attempts > 0,

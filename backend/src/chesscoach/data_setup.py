@@ -5,7 +5,8 @@
 
 Dữ liệu không nằm trong git (repo công khai; kho Lichess hơn 100 MB; bộ Stanford không có giấy phép
 phân phối lại), nên mỗi người tự tải từ nguồn gốc. Mọi bước đều tất định: chạy trên máy nào cũng ra cùng
-kho bài tập và cùng phép chia. Bước nào đã có kết quả thì bỏ qua, trừ khi có --force.
+kho bài tập và cùng phép chia. Bước nào đã có kết quả thì bỏ qua, trừ khi có --force. File tải gốc (.zst, .zip)
+bị xóa sau khi dựng xong để đỡ tốn ổ đĩa, trừ khi có --keep-raw.
 """
 
 import argparse
@@ -55,30 +56,34 @@ def safe_extract(archive: Path, target_dir: Path) -> None:
         z.extractall(root)
 
 
-def setup_lichess(data_dir: Path, force: bool) -> None:
+def setup_lichess(data_dir: Path, force: bool, keep_raw: bool) -> None:
     raw = data_dir / "raw" / "lichess_db_puzzle.csv.zst"
     parquet = data_dir / "puzzles.parquet"
+    if not force and parquet.exists():
+        print(f"Đã có {parquet}, bỏ qua")
+        return
     if force or not raw.exists():
         print(f"Tải kho bài tập Lichess (khoảng 300 MB) từ {LICHESS_URL}")
         download(LICHESS_URL, raw)
-    if force or not parquet.exists():
-        print("Dựng puzzles.parquet …")
-        print(f"  {import_full(raw, parquet):,} bài tập")
-    else:
-        print(f"Đã có {parquet}, bỏ qua")
+    print("Dựng puzzles.parquet …")
+    print(f"  {import_full(raw, parquet):,} bài tập")
+    if not keep_raw:
+        raw.unlink()
 
 
-def setup_stanford(data_dir: Path, force: bool, seed: int) -> None:
+def setup_stanford(data_dir: Path, force: bool, seed: int, keep_raw: bool) -> None:
     stanford = data_dir / "stanford"
     archive, raw, split = stanford / "starter_bundle.zip", stanford / "raw", stanford / "split"
-    if force or not archive.exists():
-        print(f"Tải bộ Stanford CS398 (khoảng 32 MB) từ {STANFORD_URL}")
-        download(STANFORD_URL, archive)
     if force or not all((raw / name).exists() for name in STANFORD_FILES):
+        if force or not archive.exists():
+            print(f"Tải bộ Stanford CS398 (khoảng 32 MB) từ {STANFORD_URL}")
+            download(STANFORD_URL, archive)
         if raw.exists():
             shutil.rmtree(raw)
         raw.mkdir(parents=True)
         safe_extract(archive, raw)
+        if not keep_raw:
+            archive.unlink()
     if force or not (split / "manifest.json").exists():
         print(f"Chia bộ Stanford theo thời gian (seed {seed}) …")
         counts = make_split(raw_dir=raw, out_dir=split, seed=seed)
@@ -93,10 +98,11 @@ def main() -> None:
     parser.add_argument("--data-dir", type=Path, default=DATA_DIR)
     parser.add_argument("--force", action="store_true", help="tải và dựng lại mọi bước")
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED, help="seed của phép chia Stanford")
+    parser.add_argument("--keep-raw", action="store_true", help="giữ file tải gốc (.zst, .zip) sau khi dựng xong")
     args = parser.parse_args()
 
-    setup_lichess(args.data_dir, args.force)
-    setup_stanford(args.data_dir, args.force, args.seed)
+    setup_lichess(args.data_dir, args.force, args.keep_raw)
+    setup_stanford(args.data_dir, args.force, args.seed, args.keep_raw)
     print(f"Xong. Dữ liệu nằm trong {args.data_dir}")
 
 

@@ -10,9 +10,10 @@ from chesscoach.ability import ProbabilityCalibration
 from chesscoach.ability_history import player_ability
 from chesscoach.auth import CurrentPlayer, Db, player_api_router
 from chesscoach.db import Attempt, Player
-from chesscoach.deps import Calibration, Catalog, Practice
+from chesscoach.deps import Calibration, Catalog, Placement, Practice
+from chesscoach.placement import placement_status
 from chesscoach.puzzles import Puzzle, PuzzleCatalog
-from chesscoach.recommend import PracticeConfig, PracticePlan, Scored, plan_practice
+from chesscoach.recommend import PracticeConfig, PracticePlan, Scored, plan_practice, score_candidates
 from chesscoach.skills import SKILLS_BY_ID
 from chesscoach.solving import board_at, color_name
 
@@ -36,7 +37,7 @@ def plan_for(
     def find_candidates(low: float, high: float) -> list[Puzzle]:
         return catalog.candidates(low, high, attempted, config.candidate_pool, seed=seed)
 
-    return plan_practice(player_ability(db, player.id), calibration, player.practice_minutes, find_candidates, config)
+    return plan_practice(player_ability(db, player), calibration, player.practice_minutes, find_candidates, config)
 
 
 class SkillRef(BaseModel):
@@ -64,7 +65,17 @@ class PracticeItemOut(BaseModel):
     score: ScoreOut
 
 
+class PlacementOut(BaseModel):
+    total: int
+    completed: int
+    started: bool
+    """Đã mở lần giải đầu tiên của bài kiểm tra; từ đó dải không đổi nữa."""
+
+
 class PracticeOut(BaseModel):
+    mode: Literal["placement", "practice"]
+    """placement: người chơi mới đang làm bài kiểm tra đầu vào; items là các bài tập còn lại của nó."""
+    placement: PlacementOut | None
     daily_minutes: int
     size: int
     target_rating: float
@@ -91,11 +102,31 @@ def _item(s: Scored) -> PracticeItemOut:
 
 @router.get("/practice")
 def get_practice(
-    player: CurrentPlayer, db: Db, catalog: Catalog, calibration: Calibration, config: Practice
+    player: CurrentPlayer,
+    db: Db,
+    catalog: Catalog,
+    calibration: Calibration,
+    config: Practice,
+    placement_sets: Placement,
 ) -> PracticeOut:
-    """Buổi luyện tiếp theo."""
-    plan = plan_for(player, db, catalog, calibration.get(db), config)
+    """Buổi luyện tiếp theo; với người chơi mới là các bài tập còn lại của bài kiểm tra đầu vào."""
+    probability = calibration.get(db)
+    progress = placement_status(db, player, placement_sets)
+    if progress is not None:
+        puzzles = [p for pid in progress.remaining if (p := catalog.get(pid)) is not None]
+        scored = score_candidates(player_ability(db, player), probability, puzzles, config)
+        return PracticeOut(
+            mode="placement",
+            placement=PlacementOut(total=len(progress.puzzle_ids), completed=progress.completed, started=progress.started),
+            daily_minutes=player.practice_minutes,
+            size=len(progress.puzzle_ids),
+            target_rating=float(progress.band + placement_sets.band_width / 2) if placement_sets else 0.0,
+            items=[_item(s) for s in scored],
+        )
+    plan = plan_for(player, db, catalog, probability, config)
     return PracticeOut(
+        mode="practice",
+        placement=None,
         daily_minutes=player.practice_minutes,
         size=plan.size,
         target_rating=round(plan.target_rating, 1),

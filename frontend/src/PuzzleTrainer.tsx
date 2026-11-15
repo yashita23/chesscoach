@@ -9,6 +9,7 @@ const OPPONENT_DELAY_MS = 450
 
 type Phase =
   | { kind: 'loading' }
+  | { kind: 'intro'; total: number } // trước bài kiểm tra đầu vào: hỏi rating ván (tùy chọn)
   | { kind: 'error'; message: string }
   | { kind: 'opponent' } // đang chờ diễn nước của đối thủ
   | { kind: 'turn' } // tới lượt người chơi
@@ -28,7 +29,7 @@ function highlight(uci: string | null): Record<string, React.CSSProperties> {
   return { [from]: style, [to]: style }
 }
 
-export default function PuzzleTrainer() {
+export default function PuzzleTrainer({ onPlacementDone }: { onPlacementDone: () => void }) {
   const [attempt, setAttempt] = useState<Attempt | null>(null)
   const [fen, setFen] = useState<string>('start')
   const [lastMove, setLastMove] = useState<string | null>(null)
@@ -50,6 +51,9 @@ export default function PuzzleTrainer() {
 
   useEffect(() => () => window.clearTimeout(timer.current), [])
 
+  // Người chơi đã qua màn hình giới thiệu bài kiểm tra (hoặc không cần) trong lần mở trang này.
+  const introSeen = useRef(false)
+
   const loadNext = useCallback(async () => {
     setPhase({ kind: 'loading' })
     setFeedback(null)
@@ -57,6 +61,14 @@ export default function PuzzleTrainer() {
     setLastMove(null)
     setFailed(false)
     try {
+      if (!introSeen.current) {
+        const practice = await api.practice()
+        if (practice.mode === 'placement' && practice.placement && !practice.placement.started) {
+          setPhase({ kind: 'intro', total: practice.placement.total })
+          return
+        }
+        introSeen.current = true
+      }
       const { puzzle_id } = await api.nextPuzzle()
       const a = await api.startAttempt(puzzle_id)
       setAttempt(a)
@@ -156,6 +168,19 @@ export default function PuzzleTrainer() {
     return phase.kind === 'turn' && attempt !== null && piece[0] === attempt.player_color[0]
   }
 
+  if (phase.kind === 'intro') {
+    return (
+      <PlacementIntro
+        total={phase.total}
+        onStart={() => {
+          introSeen.current = true
+          setPracticeVersion((v) => v + 1)
+          void loadNext()
+        }}
+      />
+    )
+  }
+
   if (phase.kind === 'error') {
     return (
       <section className="trainer">
@@ -203,8 +228,68 @@ export default function PuzzleTrainer() {
             Bài tập tiếp theo
           </button>
         )}
-        <PracticePanel version={practiceVersion} current={attempt?.puzzle_id ?? null} />
+        <PracticePanel
+          version={practiceVersion}
+          current={attempt?.puzzle_id ?? null}
+          onPlacementDone={onPlacementDone}
+        />
       </aside>
+    </section>
+  )
+}
+
+/** Màn hình trước bài kiểm tra đầu vào: giải thích ngắn và hỏi rating ván (không bắt buộc). */
+function PlacementIntro({ total, onStart }: { total: number; onStart: () => void }) {
+  const [rating, setRating] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  async function start(e: React.FormEvent) {
+    e.preventDefault()
+    setError(null)
+    if (rating.trim()) {
+      setBusy(true)
+      try {
+        await api.updateMe({ claimed_rating: Number(rating) })
+      } catch (err) {
+        setError(err instanceof ApiError ? 'Rating ván phải từ 400 đến 3000' : 'Không kết nối được máy chủ')
+        setBusy(false)
+        return
+      }
+    }
+    onStart()
+  }
+
+  return (
+    <section className="center">
+      <form className="card" onSubmit={start}>
+        <h1>Bài kiểm tra đầu vào</h1>
+        <p>
+          Trước khi luyện, bạn giải {total} bài tập, mỗi bài tập một kỹ năng. Kết quả giúp hệ thống biết bạn mạnh, yếu ở
+          đâu để chọn bài tập vừa sức.
+        </p>
+        <label htmlFor="claimed-rating">
+          Rating ván của bạn trên Lichess hoặc Chess.com (không bắt buộc)
+          <input
+            id="claimed-rating"
+            type="number"
+            inputMode="numeric"
+            min={400}
+            max={3000}
+            placeholder="Ví dụ 1200"
+            value={rating}
+            onChange={(e) => setRating(e.target.value)}
+          />
+        </label>
+        {error && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
+        <button type="submit" disabled={busy}>
+          Bắt đầu bài kiểm tra
+        </button>
+      </form>
     </section>
   )
 }

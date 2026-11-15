@@ -3,7 +3,6 @@
 from datetime import UTC, datetime
 from typing import Literal
 
-import chess
 from fastapi import HTTPException, Response, status
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -12,8 +11,8 @@ from chesscoach.ability import predict
 from chesscoach.auth import CurrentPlayer, Db, player_api_router
 from chesscoach.db import Attempt
 from chesscoach.ability_history import player_ability
-from chesscoach.deps import Calibration, Catalog
-from chesscoach.deps import Practice
+from chesscoach.deps import Calibration, Catalog, Placement, Practice
+from chesscoach.placement import placement_status
 from chesscoach.practice import plan_for
 from chesscoach.puzzles import Puzzle, PuzzleCatalog
 from chesscoach.skills import skills_of
@@ -39,9 +38,15 @@ class NextPuzzleOut(BaseModel):
 
 @router.get("/puzzles/next")
 def next_puzzle(
-    player: CurrentPlayer, db: Db, catalog: Catalog, calibration: Calibration, config: Practice
+    player: CurrentPlayer,
+    db: Db,
+    catalog: Catalog,
+    calibration: Calibration,
+    config: Practice,
+    placement_sets: Placement,
 ) -> NextPuzzleOut:
-    """Bài tập đang làm dở (chưa có nhãn) nếu có; nếu không thì bài tập đầu tiên của buổi luyện."""
+    """Bài tập đang làm dở (chưa có nhãn) nếu có; nếu không thì bài tập tiếp theo của bài kiểm tra đầu vào
+    (người chơi mới), hoặc bài tập đầu tiên của buổi luyện."""
     unfinished = db.scalars(
         select(Attempt.puzzle_id)
         .where(Attempt.player_id == player.id, Attempt.correct.is_(None))
@@ -49,6 +54,9 @@ def next_puzzle(
     ).first()
     if unfinished is not None:
         return NextPuzzleOut(puzzle_id=unfinished)
+    progress = placement_status(db, player, placement_sets)
+    if progress is not None:
+        return NextPuzzleOut(puzzle_id=progress.remaining[0])
     plan = plan_for(player, db, catalog, calibration.get(db), config)
     if plan.items:
         return NextPuzzleOut(puzzle_id=plan.items[0].puzzle.id)
@@ -94,11 +102,20 @@ def _attempt_out(attempt: Attempt, puzzle: Puzzle, predicted_p: float) -> Attemp
 
 @router.post("/attempts", status_code=status.HTTP_201_CREATED)
 def start_attempt(
-    body: StartRequest, player: CurrentPlayer, db: Db, catalog: Catalog, calibration: Calibration, response: Response
+    body: StartRequest,
+    player: CurrentPlayer,
+    db: Db,
+    catalog: Catalog,
+    calibration: Calibration,
+    placement_sets: Placement,
+    response: Response,
 ) -> AttemptOut:
-    """Mở lần giải cho một bài tập. Lần giải đang dở thì mở lại (200); bài tập đã có nhãn thì 409."""
+    """Mở lần giải cho một bài tập. Lần giải đang dở thì mở lại (200); bài tập đã có nhãn thì 409.
+
+    Bài tập thuộc bài kiểm tra đầu vào đang làm thì lần giải được đánh dấu, và dải của bài kiểm tra được chốt.
+    """
     puzzle = _puzzle_or_404(catalog, body.puzzle_id)
-    raw_p = predict(player_ability(db, player.id), skills_of(puzzle.themes), puzzle.rating)
+    raw_p = predict(player_ability(db, player), skills_of(puzzle.themes), puzzle.rating)
     p = calibration.get(db).apply(raw_p)
     existing = db.scalars(
         select(Attempt).where(Attempt.player_id == player.id, Attempt.puzzle_id == puzzle.id)
@@ -109,10 +126,15 @@ def start_attempt(
         response.status_code = status.HTTP_200_OK
         return _attempt_out(existing, puzzle, p)
 
+    progress = placement_status(db, player, placement_sets)  # tính trước khi thêm lần giải mới
+    in_placement = progress is not None and puzzle.id in progress.puzzle_ids
+    if progress is not None and in_placement and player.placement_band is None:
+        player.placement_band = progress.band
     attempt = Attempt(
         player_id=player.id,
         puzzle_id=puzzle.id,
         puzzle_rating=puzzle.rating,
+        is_placement=in_placement,
         started_at=_now(),
     )
     attempt.themes = puzzle.themes
@@ -128,6 +150,8 @@ class AttemptSummaryOut(BaseModel):
     completed: bool
     correct: bool | None
     solve_time_ms: int | None
+    placement: bool
+    """Lần giải thuộc bài kiểm tra đầu vào."""
 
 
 @router.get("/attempts")
@@ -146,6 +170,7 @@ def list_attempts(player: CurrentPlayer, db: Db) -> list[AttemptSummaryOut]:
             completed=a.completed,
             correct=a.correct,
             solve_time_ms=a.solve_time_ms,
+            placement=bool(a.is_placement),
         )
         for a in rows
     ]

@@ -28,6 +28,11 @@ class Player(Base):
     @property
     def practice_minutes(self) -> int:
         return self.daily_minutes or DEFAULT_DAILY_MINUTES
+
+    claimed_rating: Mapped[int | None] = mapped_column(default=None)
+    """Rating ván người chơi tự khai (tùy chọn); quy đổi thô thành tiên nghiệm năng lực."""
+    placement_band: Mapped[int | None] = mapped_column(default=None)
+    """Mép dưới dải 200 điểm của bài kiểm tra đầu vào; chốt khi mở lần giải đầu tiên của bài kiểm tra."""
     password_hash: Mapped[bytes]
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
@@ -56,6 +61,8 @@ class Attempt(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     player_id: Mapped[int] = mapped_column(ForeignKey("players.id", ondelete="CASCADE"), index=True)
     puzzle_id: Mapped[str] = mapped_column(String(16))
+    is_placement: Mapped[bool | None] = mapped_column(default=False)
+    """Lần giải thuộc bài kiểm tra đầu vào (None ở DB cũ nghĩa là không)."""
     # Ảnh chụp bài tập lúc mở lần giải, để tính lại năng lực mà không phải tra kho bài tập.
     puzzle_rating: Mapped[int | None] = mapped_column(default=None)
     puzzle_themes: Mapped[str | None] = mapped_column(String(500), default=None)

@@ -18,7 +18,7 @@ def test_dang_ky_xong_thi_da_dang_nhap_va_thay_ten_minh(client: TestClient) -> N
     r = client.get("/api/me")
 
     assert r.status_code == 200
-    assert r.json() == {"email": EMAIL, "display_name": "An", "daily_minutes": 30}
+    assert r.json() == {"email": EMAIL, "display_name": "An", "daily_minutes": 30, "claimed_rating": None}
 
 
 def test_email_da_dang_ky_bi_tu_choi_ke_ca_khac_chu_hoa(client: TestClient) -> None:

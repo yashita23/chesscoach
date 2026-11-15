@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { api, ApiError, type Player } from './api'
 import ProfileView from './ProfileView'
 import PuzzleTrainer from './PuzzleTrainer'
@@ -107,6 +107,12 @@ type Tab = 'train' | 'profile'
 
 function Home({ player, onLogout }: { player: Player; onLogout: () => void }) {
   const [tab, setTab] = useState<Tab>('train')
+  // Vừa xong bài kiểm tra đầu vào: mở hồ sơ kỹ năng sơ bộ trước khi vào buổi luyện.
+  const [placementJustDone, setPlacementJustDone] = useState(false)
+  const onPlacementDone = useCallback(() => {
+    setPlacementJustDone(true)
+    setTab('profile')
+  }, [])
 
   async function logout() {
     await api.logout().catch(() => undefined)
@@ -132,7 +138,24 @@ function Home({ player, onLogout }: { player: Player; onLogout: () => void }) {
           </button>
         </span>
       </header>
-      <main className="content">{tab === 'train' ? <PuzzleTrainer /> : <ProfileView />}</main>
+      <main className="content">
+        {tab === 'train' ? (
+          <PuzzleTrainer onPlacementDone={onPlacementDone} />
+        ) : (
+          <>
+            {placementJustDone && (
+              <p className="notice" role="status">
+                Bạn vừa xong bài kiểm tra đầu vào. Đây là hồ sơ kỹ năng sơ bộ; kỹ năng chưa được kiểm tra hiện “chưa đủ
+                dữ liệu”.{' '}
+                <button type="button" className="link" onClick={() => setTab('train')}>
+                  Bắt đầu buổi luyện
+                </button>
+              </p>
+            )}
+            <ProfileView />
+          </>
+        )}
+      </main>
     </>
   )
 }

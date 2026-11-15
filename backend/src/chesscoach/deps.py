@@ -5,6 +5,7 @@ from typing import Annotated
 from fastapi import Depends, Request
 
 from chesscoach.ability_history import CalibrationCache
+from chesscoach.placement import PlacementSets
 from chesscoach.puzzles import PuzzleCatalog
 from chesscoach.recommend import PracticeConfig
 
@@ -31,3 +32,11 @@ def get_practice_config(request: Request) -> PracticeConfig:
 
 
 Practice = Annotated[PracticeConfig, Depends(get_practice_config)]
+
+
+def get_placement_sets(request: Request) -> PlacementSets | None:
+    sets: PlacementSets | None = request.app.state.placement_sets
+    return sets
+
+
+Placement = Annotated[PlacementSets | None, Depends(get_placement_sets)]

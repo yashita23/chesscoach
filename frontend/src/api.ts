@@ -2,6 +2,7 @@ export type Player = {
   email: string
   display_name: string
   daily_minutes: number
+  claimed_rating: number | null
 }
 
 export class ApiError extends Error {
@@ -110,6 +111,9 @@ export type PracticeItem = {
 }
 
 export type Practice = {
+  /** placement: người chơi mới đang làm bài kiểm tra đầu vào. */
+  mode: 'placement' | 'practice'
+  placement: { total: number; completed: number; started: boolean } | null
   daily_minutes: number
   size: number
   target_rating: number
@@ -129,5 +133,6 @@ export const api = {
     request<MoveResult>('POST', `/attempts/${attemptId}/moves`, { uci }),
   profile: () => request<Profile>('GET', '/profile'),
   practice: () => request<Practice>('GET', '/practice'),
-  updateMe: (daily_minutes: number) => request<Player>('PATCH', '/me', { daily_minutes }),
+  updateMe: (changes: { daily_minutes?: number; claimed_rating?: number }) =>
+    request<Player>('PATCH', '/me', changes),
 }

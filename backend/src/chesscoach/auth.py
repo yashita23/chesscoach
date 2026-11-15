@@ -52,6 +52,7 @@ class PlayerOut(BaseModel):
     email: str
     display_name: str
     daily_minutes: int
+    claimed_rating: int | None
 
     @classmethod
     def of(cls, player: Player) -> "PlayerOut":
@@ -59,11 +60,14 @@ class PlayerOut(BaseModel):
             email=player.email,
             display_name=player.display_name,
             daily_minutes=player.practice_minutes,
+            claimed_rating=player.claimed_rating,
         )
 
 
 class PlayerUpdate(BaseModel):
-    daily_minutes: int = Field(ge=5, le=180)
+    daily_minutes: int | None = Field(default=None, ge=5, le=180)
+    claimed_rating: int | None = Field(default=None, ge=400, le=3000)
+    """Rating ván tự khai (Lichess hoặc Chess.com), dùng làm tiên nghiệm năng lực."""
 
 
 def _token_hash(token: str) -> str:
@@ -147,6 +151,7 @@ def me(player: CurrentPlayer) -> PlayerOut:
 
 @player_router.patch("/me")
 def update_me(body: PlayerUpdate, player: CurrentPlayer, db: Db) -> PlayerOut:
-    player.daily_minutes = body.daily_minutes
+    for field, value in body.model_dump(exclude_unset=True).items():
+        setattr(player, field, value)
     db.commit()
     return PlayerOut.of(player)

@@ -9,7 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from chesscoach.ability import Ability, Observation, ProbabilityCalibration, replay, replay_with_predictions
-from chesscoach.db import Attempt
+from chesscoach.db import Attempt, Player
 from chesscoach.puzzles import PuzzleCatalog
 from chesscoach.skills import skills_of
 
@@ -29,9 +29,21 @@ def _observation(a: Attempt) -> Observation:
     return Observation(skills=skills_of(a.themes), rating=float(a.puzzle_rating or 0), correct=bool(a.correct))
 
 
-def player_ability(db: Session, player_id: int) -> Ability:
-    """Chạy lại mô hình năng lực trên các lần giải đã có nhãn, theo thứ tự lúc chốt nhãn."""
-    return replay(_observation(a) for a in sorted(_labeled_attempts(db, player_id), key=_decided_order))
+RATING_PRIOR_MIN, RATING_PRIOR_MAX = 400, 2800
+
+
+def prior_ability(player: Player) -> Ability:
+    """Năng lực trước lần giải đầu tiên: rating ván tự khai quy đổi thô (dùng thẳng, kẹp trong 400–2800),
+    không khai thì 1500. Độ bất định ban đầu σ = 350 vẫn lớn như mọi người chơi mới."""
+    if player.claimed_rating is None:
+        return Ability()
+    return Ability(theta=float(min(max(player.claimed_rating, RATING_PRIOR_MIN), RATING_PRIOR_MAX)))
+
+
+def player_ability(db: Session, player: Player) -> Ability:
+    """Chạy lại mô hình năng lực từ tiên nghiệm, trên các lần giải đã có nhãn, theo thứ tự lúc chốt nhãn."""
+    history = sorted(_labeled_attempts(db, player.id), key=_decided_order)
+    return replay((_observation(a) for a in history), start=prior_ability(player))
 
 
 @dataclass
@@ -62,12 +74,15 @@ class CalibrationCache:
             elif self.fitted_at < 0 or labeled - self.fitted_at >= max(
                 self.refit_min_new, self.refit_growth * self.fitted_at
             ):
-                self.calibration = fit_calibration(_labeled_attempts(db), self.min_attempts)
+                priors = {p.id: prior_ability(p) for p in db.scalars(select(Player))}
+                self.calibration = fit_calibration(_labeled_attempts(db), self.min_attempts, priors)
                 self.fitted_at = labeled
             return self.calibration
 
 
-def fit_calibration(attempts: list[Attempt], min_attempts: int) -> ProbabilityCalibration:
+def fit_calibration(
+    attempts: list[Attempt], min_attempts: int, priors: dict[int, Ability] | None = None
+) -> ProbabilityCalibration:
     """Fit a, b trên xác suất mà mô hình đã dự đoán cho mọi lần giải (trước khi biết kết quả).
 
     Chưa đủ `min_attempts` lần giải đã có nhãn thì không hiệu chỉnh.
@@ -79,9 +94,10 @@ def fit_calibration(attempts: list[Attempt], min_attempts: int) -> ProbabilityCa
         by_player[a.player_id].append(a)
     predictions: list[float] = []
     outcomes: list[bool] = []
-    for history in by_player.values():
+    for player_id, history in by_player.items():
         history.sort(key=_decided_order)
-        _, predicted = replay_with_predictions(_observation(a) for a in history)
+        start = (priors or {}).get(player_id)
+        _, predicted = replay_with_predictions((_observation(a) for a in history), start)
         predictions.extend(predicted)
         outcomes.extend(bool(a.correct) for a in history)
     return ProbabilityCalibration.fit(predictions, outcomes)

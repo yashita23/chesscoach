@@ -1,0 +1,564 @@
+{
+  "source": "puzzles_sample.csv",
+  "skills": [
+    "fork",
+    "mate_in_n",
+    "attraction",
+    "king_attack",
+    "mate_in_1",
+    "pin",
+    "discovered_attack",
+    "deflection",
+    "quiet_move",
+    "promotion",
+    "defense",
+    "other_endgame"
+  ],
+  "band_width": 200,
+  "sets": {
+    "400": [
+      {
+        "skill": "fork",
+        "puzzle_id": "OE4Zh"
+      },
+      {
+        "skill": "mate_in_n",
+        "puzzle_id": "tZePc"
+      },
+      {
+        "skill": "king_attack",
+        "puzzle_id": "ilKl4"
+      },
+      {
+        "skill": "mate_in_1",
+        "puzzle_id": "5YwXX"
+      },
+      {
+        "skill": "pin",
+        "puzzle_id": "kJrLm"
+      },
+      {
+        "skill": "deflection",
+        "puzzle_id": "WZQkm"
+      },
+      {
+        "skill": "other_endgame",
+        "puzzle_id": "LMBLP"
+      }
+    ],
+    "600": [
+      {
+        "skill": "fork",
+        "puzzle_id": "OE4Zh"
+      },
+      {
+        "skill": "mate_in_n",
+        "puzzle_id": "tZePc"
+      },
+      {
+        "skill": "attraction",
+        "puzzle_id": "OkhsC"
+      },
+      {
+        "skill": "king_attack",
+        "puzzle_id": "ilKl4"
+      },
+      {
+        "skill": "mate_in_1",
+        "puzzle_id": "h5Vsu"
+      },
+      {
+        "skill": "pin",
+        "puzzle_id": "Hl0nj"
+      },
+      {
+        "skill": "discovered_attack",
+        "puzzle_id": "47ugI"
+      },
+      {
+        "skill": "deflection",
+        "puzzle_id": "WZQkm"
+      },
+      {
+        "skill": "promotion",
+        "puzzle_id": "9v8Hb"
+      },
+      {
+        "skill": "other_endgame",
+        "puzzle_id": "AYDLo"
+      }
+    ],
+    "800": [
+      {
+        "skill": "fork",
+        "puzzle_id": "HqGaT"
+      },
+      {
+        "skill": "mate_in_n",
+        "puzzle_id": "Mk3vR"
+      },
+      {
+        "skill": "attraction",
+        "puzzle_id": "OkhsC"
+      },
+      {
+        "skill": "king_attack",
+        "puzzle_id": "W99in"
+      },
+      {
+        "skill": "mate_in_1",
+        "puzzle_id": "DydrZ"
+      },
+      {
+        "skill": "pin",
+        "puzzle_id": "Hl0nj"
+      },
+      {
+        "skill": "discovered_attack",
+        "puzzle_id": "UyVKT"
+      },
+      {
+        "skill": "deflection",
+        "puzzle_id": "WZQkm"
+      },
+      {
+        "skill": "quiet_move",
+        "puzzle_id": "q0fKM"
+      },
+      {
+        "skill": "promotion",
+        "puzzle_id": "9v8Hb"
+      },
+      {
+        "skill": "defense",
+        "puzzle_id": "sShm8"
+      },
+      {
+        "skill": "other_endgame",
+        "puzzle_id": "KREi7"
+      }
+    ],
+    "1000": [
+      {
+        "skill": "fork",
+        "puzzle_id": "jhlHp"
+      },
+      {
+        "skill": "mate_in_n",
+        "puzzle_id": "eCR3A"
+      },
+      {
+        "skill": "attraction",
+        "puzzle_id": "ZOxop"
+      },
+      {
+        "skill": "king_attack",
+        "puzzle_id": "eGoqI"
+      },
+      {
+        "skill": "mate_in_1",
+        "puzzle_id": "IpziL"
+      },
+      {
+        "skill": "pin",
+        "puzzle_id": "APpr9"
+      },
+      {
+        "skill": "discovered_attack",
+        "puzzle_id": "47ugI"
+      },
+      {
+        "skill": "deflection",
+        "puzzle_id": "Y08Dg"
+      },
+      {
+        "skill": "quiet_move",
+        "puzzle_id": "E9FU8"
+      },
+      {
+        "skill": "promotion",
+        "puzzle_id": "q0fKM"
+      },
+      {
+        "skill": "defense",
+        "puzzle_id": "sShm8"
+      },
+      {
+        "skill": "other_endgame",
+        "puzzle_id": "AYDLo"
+      }
+    ],
+    "1200": [
+      {
+        "skill": "fork",
+        "puzzle_id": "j7VZB"
+      },
+      {
+        "skill": "mate_in_n",
+        "puzzle_id": "BQf8g"
+      },
+      {
+        "skill": "attraction",
+        "puzzle_id": "ZOxop"
+      },
+      {
+        "skill": "king_attack",
+        "puzzle_id": "eGoqI"
+      },
+      {
+        "skill": "mate_in_1",
+        "puzzle_id": "NjXVp"
+      },
+      {
+        "skill": "pin",
+        "puzzle_id": "cmxVa"
+      },
+      {
+        "skill": "discovered_attack",
+        "puzzle_id": "zJvew"
+      },
+      {
+        "skill": "deflection",
+        "puzzle_id": "Y08Dg"
+      },
+      {
+        "skill": "quiet_move",
+        "puzzle_id": "E9FU8"
+      },
+      {
+        "skill": "promotion",
+        "puzzle_id": "RBRGl"
+      },
+      {
+        "skill": "defense",
+        "puzzle_id": "sShm8"
+      },
+      {
+        "skill": "other_endgame",
+        "puzzle_id": "AYDLo"
+      }
+    ],
+    "1400": [
+      {
+        "skill": "fork",
+        "puzzle_id": "HZktn"
+      },
+      {
+        "skill": "mate_in_n",
+        "puzzle_id": "eQ3Vn"
+      },
+      {
+        "skill": "attraction",
+        "puzzle_id": "3VMl0"
+      },
+      {
+        "skill": "king_attack",
+        "puzzle_id": "0EErI"
+      },
+      {
+        "skill": "mate_in_1",
+        "puzzle_id": "cXe8i"
+      },
+      {
+        "skill": "pin",
+        "puzzle_id": "RPyjX"
+      },
+      {
+        "skill": "discovered_attack",
+        "puzzle_id": "ThZHA"
+      },
+      {
+        "skill": "deflection",
+        "puzzle_id": "Ipwad"
+      },
+      {
+        "skill": "quiet_move",
+        "puzzle_id": "E9FU8"
+      },
+      {
+        "skill": "promotion",
+        "puzzle_id": "r9Duu"
+      },
+      {
+        "skill": "defense",
+        "puzzle_id": "sShm8"
+      },
+      {
+        "skill": "other_endgame",
+        "puzzle_id": "TbD92"
+      }
+    ],
+    "1600": [
+      {
+        "skill": "fork",
+        "puzzle_id": "lPiyj"
+      },
+      {
+        "skill": "mate_in_n",
+        "puzzle_id": "eQ3Vn"
+      },
+      {
+        "skill": "attraction",
+        "puzzle_id": "0VN0C"
+      },
+      {
+        "skill": "king_attack",
+        "puzzle_id": "0EErI"
+      },
+      {
+        "skill": "mate_in_1",
+        "puzzle_id": "cXe8i"
+      },
+      {
+        "skill": "pin",
+        "puzzle_id": "cmxVa"
+      },
+      {
+        "skill": "discovered_attack",
+        "puzzle_id": "ThZHA"
+      },
+      {
+        "skill": "deflection",
+        "puzzle_id": "Ipwad"
+      },
+      {
+        "skill": "quiet_move",
+        "puzzle_id": "VMQez"
+      },
+      {
+        "skill": "promotion",
+        "puzzle_id": "OzdE6"
+      },
+      {
+        "skill": "defense",
+        "puzzle_id": "przU2"
+      },
+      {
+        "skill": "other_endgame",
+        "puzzle_id": "mhFaq"
+      }
+    ],
+    "1800": [
+      {
+        "skill": "fork",
+        "puzzle_id": "sxvZu"
+      },
+      {
+        "skill": "mate_in_n",
+        "puzzle_id": "eQ3Vn"
+      },
+      {
+        "skill": "attraction",
+        "puzzle_id": "KMGvZ"
+      },
+      {
+        "skill": "king_attack",
+        "puzzle_id": "AdOdZ"
+      },
+      {
+        "skill": "mate_in_1",
+        "puzzle_id": "cXe8i"
+      },
+      {
+        "skill": "pin",
+        "puzzle_id": "k2FTX"
+      },
+      {
+        "skill": "discovered_attack",
+        "puzzle_id": "damaB"
+      },
+      {
+        "skill": "deflection",
+        "puzzle_id": "Ipwad"
+      },
+      {
+        "skill": "quiet_move",
+        "puzzle_id": "VMQez"
+      },
+      {
+        "skill": "promotion",
+        "puzzle_id": "mU5Dp"
+      },
+      {
+        "skill": "defense",
+        "puzzle_id": "przU2"
+      },
+      {
+        "skill": "other_endgame",
+        "puzzle_id": "mhFaq"
+      }
+    ],
+    "2000": [
+      {
+        "skill": "fork",
+        "puzzle_id": "mgx1O"
+      },
+      {
+        "skill": "mate_in_n",
+        "puzzle_id": "R1GZg"
+      },
+      {
+        "skill": "attraction",
+        "puzzle_id": "KMGvZ"
+      },
+      {
+        "skill": "king_attack",
+        "puzzle_id": "TCpTl"
+      },
+      {
+        "skill": "pin",
+        "puzzle_id": "gci5A"
+      },
+      {
+        "skill": "discovered_attack",
+        "puzzle_id": "pEPsI"
+      },
+      {
+        "skill": "deflection",
+        "puzzle_id": "J7Zio"
+      },
+      {
+        "skill": "quiet_move",
+        "puzzle_id": "z13vc"
+      },
+      {
+        "skill": "promotion",
+        "puzzle_id": "mU5Dp"
+      },
+      {
+        "skill": "defense",
+        "puzzle_id": "bNHBB"
+      },
+      {
+        "skill": "other_endgame",
+        "puzzle_id": "mhFaq"
+      }
+    ],
+    "2200": [
+      {
+        "skill": "fork",
+        "puzzle_id": "mgx1O"
+      },
+      {
+        "skill": "mate_in_n",
+        "puzzle_id": "R1GZg"
+      },
+      {
+        "skill": "attraction",
+        "puzzle_id": "WYF2V"
+      },
+      {
+        "skill": "king_attack",
+        "puzzle_id": "hiN62"
+      },
+      {
+        "skill": "pin",
+        "puzzle_id": "gci5A"
+      },
+      {
+        "skill": "discovered_attack",
+        "puzzle_id": "pEPsI"
+      },
+      {
+        "skill": "deflection",
+        "puzzle_id": "UPxfY"
+      },
+      {
+        "skill": "quiet_move",
+        "puzzle_id": "z13vc"
+      },
+      {
+        "skill": "promotion",
+        "puzzle_id": "BypQy"
+      },
+      {
+        "skill": "defense",
+        "puzzle_id": "OOMyL"
+      },
+      {
+        "skill": "other_endgame",
+        "puzzle_id": "mhFaq"
+      }
+    ],
+    "2400": [
+      {
+        "skill": "fork",
+        "puzzle_id": "aa5A9"
+      },
+      {
+        "skill": "attraction",
+        "puzzle_id": "WYF2V"
+      },
+      {
+        "skill": "king_attack",
+        "puzzle_id": "hiN62"
+      },
+      {
+        "skill": "pin",
+        "puzzle_id": "gci5A"
+      },
+      {
+        "skill": "discovered_attack",
+        "puzzle_id": "pEPsI"
+      },
+      {
+        "skill": "deflection",
+        "puzzle_id": "r1ukK"
+      },
+      {
+        "skill": "quiet_move",
+        "puzzle_id": "Le14g"
+      },
+      {
+        "skill": "promotion",
+        "puzzle_id": "BypQy"
+      },
+      {
+        "skill": "defense",
+        "puzzle_id": "O1nk1"
+      },
+      {
+        "skill": "other_endgame",
+        "puzzle_id": "Lqrqw"
+      }
+    ],
+    "2600": [
+      {
+        "skill": "fork",
+        "puzzle_id": "aa5A9"
+      },
+      {
+        "skill": "attraction",
+        "puzzle_id": "WYF2V"
+      },
+      {
+        "skill": "king_attack",
+        "puzzle_id": "UPxfY"
+      },
+      {
+        "skill": "pin",
+        "puzzle_id": "gci5A"
+      },
+      {
+        "skill": "deflection",
+        "puzzle_id": "6ZkRP"
+      },
+      {
+        "skill": "quiet_move",
+        "puzzle_id": "RpnmZ"
+      },
+      {
+        "skill": "promotion",
+        "puzzle_id": "BypQy"
+      },
+      {
+        "skill": "defense",
+        "puzzle_id": "SSdYI"
+      },
+      {
+        "skill": "other_endgame",
+        "puzzle_id": "Lqrqw"
+      }
+    ]
+  }
+}

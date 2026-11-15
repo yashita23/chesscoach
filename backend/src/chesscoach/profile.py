@@ -55,7 +55,7 @@ class ProfileOut(BaseModel):
 
 @router.get("/profile")
 def get_profile(player: CurrentPlayer, db: Db) -> ProfileOut:
-    ability = player_ability(db, player.id)
+    ability = player_ability(db, player)
     skills = []
     for s in SKILLS:
         state = ability.skill(s.id)

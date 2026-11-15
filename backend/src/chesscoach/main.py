@@ -40,4 +40,5 @@ app = create_app(
     puzzle_catalog=_puzzle_catalog(),
     calibration_min_attempts=int(os.environ.get("CHESSCOACH_CALIBRATION_MIN_ATTEMPTS", "200")),
     practice_config=_practice_config(),
+    placement_sets=Path(os.environ.get("CHESSCOACH_PLACEMENT_SETS", Path(__file__).parent / "placement_sets.json")),
 )

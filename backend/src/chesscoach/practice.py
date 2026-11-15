@@ -2,7 +2,6 @@
 
 from typing import Literal
 
-import chess
 from pydantic import BaseModel
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -10,14 +9,39 @@ from sqlalchemy.orm import Session
 from chesscoach.ability import ProbabilityCalibration
 from chesscoach.ability_history import player_ability
 from chesscoach.auth import CurrentPlayer, Db, player_api_router
-from chesscoach.db import DEFAULT_DAILY_MINUTES, Attempt, Player
-from chesscoach.deps import Calibration, Catalog
-from chesscoach.recommend import DEFAULT_SESSION, Scored, score_candidates, select_session, session_size, target_rating
-from chesscoach.puzzles import PuzzleCatalog
+from chesscoach.db import Attempt, Player
+from chesscoach.deps import Calibration, Catalog, Practice
+from chesscoach.puzzles import Puzzle, PuzzleCatalog
+from chesscoach.recommend import PracticeConfig, PracticePlan, Scored, plan_practice
 from chesscoach.skills import SKILLS_BY_ID
-from chesscoach.solving import board_at, player_color
+from chesscoach.solving import board_at, color_name
 
 router = player_api_router()
+
+
+def plan_for(
+    player: Player, db: Session, catalog: PuzzleCatalog, calibration: ProbabilityCalibration, config: PracticeConfig
+) -> PracticePlan:
+    """Buổi luyện của người chơi.
+
+    Thứ tự ứng viên cố định theo (người chơi, số lần giải đã có nhãn), nên buổi luyện giữ nguyên giữa các lần gọi
+    và chỉ đổi khi có lần giải mới được chốt nhãn.
+    """
+    attempted = db.scalars(select(Attempt.puzzle_id).where(Attempt.player_id == player.id)).all()
+    labeled = db.scalar(
+        select(func.count()).select_from(Attempt).where(Attempt.player_id == player.id, Attempt.correct.is_not(None))
+    )
+    seed = f"{player.id}:{labeled}"
+
+    def find_candidates(low: float, high: float) -> list[Puzzle]:
+        return catalog.candidates(low, high, attempted, config.candidate_pool, seed=seed)
+
+    return plan_practice(player_ability(db, player.id), calibration, player.practice_minutes, find_candidates, config)
+
+
+class SkillRef(BaseModel):
+    id: str
+    name: str
 
 
 class ScoreOut(BaseModel):
@@ -29,12 +53,7 @@ class ScoreOut(BaseModel):
     quality: float
 
 
-class SkillRef(BaseModel):
-    id: str
-    name: str
-
-
-class SessionItemOut(BaseModel):
+class PracticeItemOut(BaseModel):
     puzzle_id: str
     fen: str
     """Thế cờ sau nước đầu của đối thủ, tới lượt người chơi."""
@@ -45,19 +64,19 @@ class SessionItemOut(BaseModel):
     score: ScoreOut
 
 
-class SessionOut(BaseModel):
+class PracticeOut(BaseModel):
     daily_minutes: int
     size: int
     target_rating: float
     """Rating bài tập cho p ≈ 0,7 với năng lực chung hiện tại."""
-    items: list[SessionItemOut]
+    items: list[PracticeItemOut]
 
 
-def _item(s: Scored) -> SessionItemOut:
-    return SessionItemOut(
+def _item(s: Scored) -> PracticeItemOut:
+    return PracticeItemOut(
         puzzle_id=s.puzzle.id,
         fen=board_at(s.puzzle, 1).fen(),
-        player_color="white" if player_color(s.puzzle) == chess.WHITE else "black",
+        player_color=color_name(s.puzzle),
         rating=s.puzzle.rating,
         predicted_p=round(s.p, 4),
         skills=[SkillRef(id=k, name=SKILLS_BY_ID[k].name) for k in sorted(s.skills)],
@@ -70,24 +89,15 @@ def _item(s: Scored) -> SessionItemOut:
     )
 
 
-@router.get("/session")
-def get_session(player: CurrentPlayer, db: Db, catalog: Catalog, calibration: Calibration) -> SessionOut:
-    """Buổi luyện tiếp theo. Giữ nguyên giữa các lần gọi; đổi sau mỗi lần giải được chốt nhãn."""
-    return build_session(player, db, catalog, calibration.get(db))
-
-
-def build_session(player: Player, db: Session, catalog: PuzzleCatalog, probability: ProbabilityCalibration) -> SessionOut:
-    config = DEFAULT_SESSION
-    minutes = player.daily_minutes or DEFAULT_DAILY_MINUTES
-    size = session_size(minutes, config)
-    ability = player_ability(db, player.id)
-    center = target_rating(ability, probability, config)
-    attempted = db.scalars(select(Attempt.puzzle_id).where(Attempt.player_id == player.id)).all()
-    labeled = db.scalar(
-        select(func.count()).select_from(Attempt).where(Attempt.player_id == player.id, Attempt.correct.is_not(None))
+@router.get("/practice")
+def get_practice(
+    player: CurrentPlayer, db: Db, catalog: Catalog, calibration: Calibration, config: Practice
+) -> PracticeOut:
+    """Buổi luyện tiếp theo."""
+    plan = plan_for(player, db, catalog, calibration.get(db), config)
+    return PracticeOut(
+        daily_minutes=player.practice_minutes,
+        size=plan.size,
+        target_rating=round(plan.target_rating, 1),
+        items=[_item(s) for s in plan.items],
     )
-    puzzles = catalog.candidates(
-        center - config.window, center + config.window, attempted, config.candidate_pool, seed=f"{player.id}:{labeled}"
-    )
-    chosen = select_session(score_candidates(ability, probability, puzzles, config), size, config)
-    return SessionOut(daily_minutes=minutes, size=size, target_rating=round(center, 1), items=[_item(s) for s in chosen])

@@ -23,7 +23,11 @@ class Player(Base):
     email: Mapped[str] = mapped_column(String(320), unique=True)
     display_name: Mapped[str] = mapped_column(String(100))
     daily_minutes: Mapped[int | None] = mapped_column(default=DEFAULT_DAILY_MINUTES)
-    """Thời gian luyện mỗi ngày (phút); None ở DB cũ thì coi như mặc định."""
+    """Thời gian luyện mỗi ngày (phút); None ở DB cũ thì coi như mặc định. Đọc qua `practice_minutes`."""
+
+    @property
+    def practice_minutes(self) -> int:
+        return self.daily_minutes or DEFAULT_DAILY_MINUTES
     password_hash: Mapped[bytes]
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 

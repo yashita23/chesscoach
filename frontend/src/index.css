@@ -348,7 +348,7 @@ table.skills {
   font-style: italic;
 }
 
-.session {
+.practice {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -356,7 +356,7 @@ table.skills {
   border-top: 1px solid var(--border);
 }
 
-.session-head {
+.practice-head {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
@@ -364,7 +364,7 @@ table.skills {
   gap: 8px;
 }
 
-.session-head h3 {
+.practice-head h3 {
   margin: 0;
   font-size: 1rem;
 }
@@ -386,7 +386,7 @@ table.skills {
   border-radius: 4px;
 }
 
-.session-list {
+.practice-list {
   margin: 0;
   padding: 0;
   list-style: none;
@@ -398,7 +398,7 @@ table.skills {
   counter-reset: item;
 }
 
-.session-list li {
+.practice-list li {
   display: grid;
   grid-template-columns: 2.2em 3.2em minmax(0, 1fr) auto;
   gap: 8px;
@@ -408,29 +408,29 @@ table.skills {
   counter-increment: item;
 }
 
-.session-list li::before {
+.practice-list li::before {
   content: counter(item) ".";
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
 
-.session-list li.current {
+.practice-list li.current {
   background: var(--bg);
   outline: 1px solid var(--accent);
 }
 
-.session-rating,
-.session-p {
+.practice-rating,
+.practice-p {
   font-variant-numeric: tabular-nums;
 }
 
-.session-skills {
+.practice-skills {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.session-p {
+.practice-p {
   color: var(--muted);
 }

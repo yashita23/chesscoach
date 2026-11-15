@@ -3,7 +3,7 @@ import { Chess } from 'chess.js'
 import { Chessboard } from 'react-chessboard'
 import type { Arrow, Piece, PromotionPieceOption, Square } from 'react-chessboard/dist/chessboard/types'
 import { api, ApiError, type Attempt } from './api'
-import SessionPanel from './SessionPanel'
+import PracticePanel from './PracticePanel'
 
 const OPPONENT_DELAY_MS = 450
 
@@ -39,7 +39,9 @@ export default function PuzzleTrainer() {
   const [failed, setFailed] = useState(false)
   const timer = useRef<number | undefined>(undefined)
   // Tăng mỗi khi lần giải có nhãn, để danh sách buổi luyện tính lại.
-  const [sessionVersion, setSessionVersion] = useState(0)
+  const [practiceVersion, setPracticeVersion] = useState(0)
+  /** Gọi đúng một lần cho mỗi lần giải, khi nhãn được chốt (nước sai đầu tiên hoặc giải xong). */
+  const onLabelDecided = () => setPracticeVersion((v) => v + 1)
 
   const later = useCallback((fn: () => void) => {
     window.clearTimeout(timer.current)
@@ -101,7 +103,7 @@ export default function PuzzleTrainer() {
       if (r.verdict === 'wrong') {
         setFen(before)
         setLastMove(null)
-        if (!failed) setSessionVersion((v) => v + 1) // nhãn vừa được chốt: buổi luyện tính lại
+        if (!failed) onLabelDecided()
         setFailed(true)
         if (r.expected_move) setArrow([[...squares(r.expected_move), 'rgb(47, 111, 78)']])
         setFeedback({ tone: 'bad', text: 'Chưa đúng. Mũi tên chỉ nước đúng, đi tiếp lời giải nhé.' })
@@ -117,7 +119,7 @@ export default function PuzzleTrainer() {
             : { tone: 'info', text: 'Đã đi hết lời giải. Lần giải này được tính là sai.' },
         )
         setPhase({ kind: 'done', correct })
-        if (!failed) setSessionVersion((v) => v + 1)
+        if (!failed) onLabelDecided()
         return
       }
       setFeedback({ tone: 'good', text: failed ? 'Đúng nước lời giải, đi tiếp.' : 'Đúng! Đi tiếp.' })
@@ -201,7 +203,7 @@ export default function PuzzleTrainer() {
             Bài tập tiếp theo
           </button>
         )}
-        <SessionPanel version={sessionVersion} current={attempt?.puzzle_id ?? null} />
+        <PracticePanel version={practiceVersion} current={attempt?.puzzle_id ?? null} />
       </aside>
     </section>
   )

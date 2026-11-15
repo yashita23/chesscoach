@@ -89,6 +89,10 @@ _Tránh_: bài làm lại, flashcard
 Kỹ năng nên vững trước khi luyện một kỹ năng khác. Kỹ năng tiên quyết chưa vững chỉ làm giảm ưu tiên của kỹ năng sau, không khóa nó.
 _Tránh_: điều kiện mở khóa
 
+**Thời gian luyện mỗi ngày**:
+Số phút người chơi khai sẽ luyện mỗi ngày; quyết định số bài tập của buổi luyện (30 phút khoảng 17 bài tập).
+_Tránh_: quỹ thời gian, daily budget
+
 **Lộ trình**:
 Dự kiến các buổi luyện trong 14 ngày tới, tính lại sau mỗi buổi; chỉ để xem trước, không phải kế hoạch cố định.
 _Tránh_: giáo trình, kế hoạch học

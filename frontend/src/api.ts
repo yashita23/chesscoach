@@ -99,7 +99,7 @@ export type Profile = {
   groups: SkillGroupProfile[]
 }
 
-export type SessionItem = {
+export type PracticeItem = {
   puzzle_id: string
   fen: string
   player_color: Color
@@ -109,11 +109,11 @@ export type SessionItem = {
   score: { total: number; fit: number; exploration: number; quality: number }
 }
 
-export type Session = {
+export type Practice = {
   daily_minutes: number
   size: number
   target_rating: number
-  items: SessionItem[]
+  items: PracticeItem[]
 }
 
 export const api = {
@@ -128,6 +128,6 @@ export const api = {
   playMove: (attemptId: number, uci: string) =>
     request<MoveResult>('POST', `/attempts/${attemptId}/moves`, { uci }),
   profile: () => request<Profile>('GET', '/profile'),
-  session: () => request<Session>('GET', '/session'),
+  practice: () => request<Practice>('GET', '/practice'),
   updateMe: (daily_minutes: number) => request<Player>('PATCH', '/me', { daily_minutes }),
 }

@@ -1,4 +1,4 @@
-"""Phụ thuộc FastAPI dùng chung: kho bài tập và hiệu chỉnh xác suất của app."""
+"""Phụ thuộc FastAPI dùng chung: kho bài tập, hiệu chỉnh xác suất và cấu hình buổi luyện của app."""
 
 from typing import Annotated
 
@@ -6,6 +6,7 @@ from fastapi import Depends, Request
 
 from chesscoach.ability_history import CalibrationCache
 from chesscoach.puzzles import PuzzleCatalog
+from chesscoach.recommend import PracticeConfig
 
 
 def get_catalog(request: Request) -> PuzzleCatalog:
@@ -22,3 +23,11 @@ def get_calibration_cache(request: Request) -> CalibrationCache:
 
 
 Calibration = Annotated[CalibrationCache, Depends(get_calibration_cache)]
+
+
+def get_practice_config(request: Request) -> PracticeConfig:
+    config: PracticeConfig = request.app.state.practice_config
+    return config
+
+
+Practice = Annotated[PracticeConfig, Depends(get_practice_config)]

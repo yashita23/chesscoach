@@ -2,27 +2,32 @@
 
     điểm = −λ_vừa_sức·|p − p*| + λ_thăm_dò·max σₖ / σ₀ + λ_chất_lượng·Popularity / 100
 
-p là xác suất giải đúng đã hiệu chỉnh. Ứng viên lấy trong khoảng ±`window` quanh rating bài tập cho p = p*
-(với thang s của E1b, rating đó thấp hơn năng lực chung khoảng 440). Chọn top-K bằng MMR: mỗi bước lấy bài tập
-có λ_mmr·điểm − (1 − λ_mmr)·độ trùng kỹ năng với các bài tập đã chọn lớn nhất, và không kỹ năng nào vượt
+p là xác suất giải đúng sau hiệu chỉnh xác suất. Ứng viên lấy trong khoảng ±`window` quanh rating bài tập cho
+p = p* (với thang s của E1b, rating đó thấp hơn năng lực chung khoảng 440; spec gốc ghi "θ ± 300" nhưng với thang
+này θ ± 300 không bao giờ chạm p ≈ 0,7). Thiếu ứng viên thì nới khoảng ×2, ×4. Chọn top-K bằng MMR: mỗi bước lấy
+bài tập có λ_mmr·điểm − (1 − λ_mmr)·độ trùng kỹ năng với các bài tập đã chọn lớn nhất, và không kỹ năng nào vượt
 `max_skill_share` của buổi luyện. Thành phần điểm yếu (λ₂) thêm ở #9.
 """
 
 import math
 from collections import Counter
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 
-from chesscoach.ability import Ability, ProbabilityCalibration, predict
+from chesscoach.ability import Ability, ProbabilityCalibration, predict, rating_for_probability
 from chesscoach.puzzles import Puzzle
 from chesscoach.skills import skills_of
 
 
 @dataclass(frozen=True)
-class SessionConfig:
+class PracticeConfig:
+    """Cấu hình buổi luyện; đọc từ `create_app` (và biến môi trường CHESSCOACH_PRACTICE_CONFIG)."""
+
     target_p: float = 0.7
     window: float = 300.0
     """Nửa độ rộng khoảng rating của ứng viên, quanh rating cho p = target_p."""
+    max_widenings: int = 2
+    """Số lần nới khoảng (×2 mỗi lần) khi không đủ ứng viên."""
     candidate_pool: int = 300
     lambda_fit: float = 1.0
     lambda_exploration: float = 0.1
@@ -35,17 +40,16 @@ class SessionConfig:
     max_size: int = 40
 
 
-DEFAULT_SESSION = SessionConfig()
+DEFAULT_PRACTICE = PracticeConfig()
 
 
-def session_size(daily_minutes: int, config: SessionConfig = DEFAULT_SESSION) -> int:
+def practice_size(daily_minutes: int, config: PracticeConfig) -> int:
     return max(config.min_size, min(config.max_size, round(daily_minutes * 60 / config.seconds_per_puzzle)))
 
 
-def target_rating(ability: Ability, calibration: ProbabilityCalibration, config: SessionConfig = DEFAULT_SESSION) -> float:
-    """Rating bài tập mà người chơi (với năng lực chung) giải đúng với xác suất target_p, sau hiệu chỉnh."""
-    raw = calibration.invert(config.target_p)
-    return ability.theta - ability.config.scale * math.log(raw / (1 - raw))
+def target_rating(ability: Ability, calibration: ProbabilityCalibration, config: PracticeConfig) -> float:
+    """Rating bài tập mà người chơi (với năng lực chung) giải đúng với xác suất target_p sau hiệu chỉnh xác suất."""
+    return rating_for_probability(ability, calibration.invert(config.target_p))
 
 
 @dataclass(frozen=True)
@@ -64,15 +68,12 @@ class Scored:
     puzzle: Puzzle
     skills: frozenset[str]
     p: float
-    """Xác suất giải đúng đã hiệu chỉnh."""
+    """Xác suất giải đúng sau hiệu chỉnh xác suất."""
     score: ScoreParts
 
 
 def score_candidates(
-    ability: Ability,
-    calibration: ProbabilityCalibration,
-    puzzles: Iterable[Puzzle],
-    config: SessionConfig = DEFAULT_SESSION,
+    ability: Ability, calibration: ProbabilityCalibration, puzzles: Iterable[Puzzle], config: PracticeConfig
 ) -> list[Scored]:
     scored = []
     for puzzle in puzzles:
@@ -93,7 +94,7 @@ def _overlap(skills: frozenset[str], chosen: list[Scored]) -> float:
     return max((len(skills & c.skills) / len(skills | c.skills) for c in chosen), default=0.0)
 
 
-def select_session(candidates: list[Scored], size: int, config: SessionConfig = DEFAULT_SESSION) -> list[Scored]:
+def select_practice(candidates: list[Scored], size: int, config: PracticeConfig) -> list[Scored]:
     """Chọn tối đa `size` bài tập bằng MMR, giới hạn số bài tập của mỗi kỹ năng."""
     cap = max(1, math.floor(config.max_skill_share * size))
     per_skill: Counter[str] = Counter()
@@ -111,3 +112,35 @@ def select_session(candidates: list[Scored], size: int, config: SessionConfig = 
         per_skill.update(best.skills)
         remaining.remove(best)
     return chosen
+
+
+@dataclass(frozen=True)
+class PracticePlan:
+    size: int
+    target_rating: float
+    items: list[Scored]
+
+
+FindCandidates = Callable[[float, float], list[Puzzle]]
+"""(rating thấp nhất, rating cao nhất) → các bài tập chưa làm trong khoảng đó."""
+
+
+def plan_practice(
+    ability: Ability,
+    calibration: ProbabilityCalibration,
+    daily_minutes: int,
+    find_candidates: FindCandidates,
+    config: PracticeConfig,
+) -> PracticePlan:
+    """Buổi luyện cho một người chơi; nới khoảng rating khi không đủ ứng viên."""
+    size = practice_size(daily_minutes, config)
+    center = target_rating(ability, calibration, config)
+    window = config.window
+    puzzles = find_candidates(center - window, center + window)
+    for _ in range(config.max_widenings):
+        if len(puzzles) >= size:
+            break
+        window *= 2
+        puzzles = find_candidates(center - window, center + window)
+    items = select_practice(score_candidates(ability, calibration, puzzles, config), size, config)
+    return PracticePlan(size=size, target_rating=center, items=items)

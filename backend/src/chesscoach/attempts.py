@@ -13,10 +13,11 @@ from chesscoach.auth import CurrentPlayer, Db, player_api_router
 from chesscoach.db import Attempt
 from chesscoach.ability_history import player_ability
 from chesscoach.deps import Calibration, Catalog
-from chesscoach.practice import build_session
+from chesscoach.deps import Practice
+from chesscoach.practice import plan_for
 from chesscoach.puzzles import Puzzle, PuzzleCatalog
 from chesscoach.skills import skills_of
-from chesscoach.solving import IllegalMove, board_at, judge, player_color
+from chesscoach.solving import IllegalMove, board_at, color_name, judge
 
 router = player_api_router()
 
@@ -37,7 +38,9 @@ class NextPuzzleOut(BaseModel):
 
 
 @router.get("/puzzles/next")
-def next_puzzle(player: CurrentPlayer, db: Db, catalog: Catalog, calibration: Calibration) -> NextPuzzleOut:
+def next_puzzle(
+    player: CurrentPlayer, db: Db, catalog: Catalog, calibration: Calibration, config: Practice
+) -> NextPuzzleOut:
     """Bài tập đang làm dở (chưa có nhãn) nếu có; nếu không thì bài tập đầu tiên của buổi luyện."""
     unfinished = db.scalars(
         select(Attempt.puzzle_id)
@@ -46,9 +49,9 @@ def next_puzzle(player: CurrentPlayer, db: Db, catalog: Catalog, calibration: Ca
     ).first()
     if unfinished is not None:
         return NextPuzzleOut(puzzle_id=unfinished)
-    session = build_session(player, db, catalog, calibration.get(db))
-    if session.items:
-        return NextPuzzleOut(puzzle_id=session.items[0].puzzle_id)
+    plan = plan_for(player, db, catalog, calibration.get(db), config)
+    if plan.items:
+        return NextPuzzleOut(puzzle_id=plan.items[0].puzzle.id)
     # Hết bài tập vừa sức trong khoảng rating: lấy một bài tập phổ biến bất kỳ chưa làm.
     done = db.scalars(select(Attempt.puzzle_id).where(Attempt.player_id == player.id)).all()
     puzzle = catalog.random_excluding(done)
@@ -84,7 +87,7 @@ def _attempt_out(attempt: Attempt, puzzle: Puzzle, predicted_p: float) -> Attemp
         start_fen=board_at(puzzle, last_opponent_ply).fen(),
         opponent_move=puzzle.moves[last_opponent_ply],
         fen=board_at(puzzle, attempt.next_ply).fen(),
-        player_color="white" if player_color(puzzle) == chess.WHITE else "black",
+        player_color=color_name(puzzle),
         predicted_p=round(predicted_p, 4),
     )
 

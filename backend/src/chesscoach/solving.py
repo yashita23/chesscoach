@@ -1,6 +1,7 @@
 """Chấm nước đi trong một lần giải. Hàm thuần: không đọc DB, không biết HTTP."""
 
 from dataclasses import dataclass
+from typing import Literal
 
 import chess
 
@@ -33,6 +34,11 @@ def board_at(puzzle: Puzzle, ply: int) -> chess.Board:
 
 def player_color(puzzle: Puzzle) -> chess.Color:
     return board_at(puzzle, 1).turn
+
+
+def color_name(puzzle: Puzzle) -> Literal["white", "black"]:
+    """Bên người chơi cầm quân, dạng chữ cho API."""
+    return "white" if player_color(puzzle) == chess.WHITE else "black"
 
 
 def judge(puzzle: Puzzle, ply: int, uci: str) -> Verdict:

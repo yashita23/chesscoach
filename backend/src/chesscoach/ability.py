@@ -116,6 +116,11 @@ def predict(ability: Ability, skills: Iterable[str], rating: float) -> float:
     return _sigmoid((ability.theta + deviation - rating) / ability.config.scale)
 
 
+def rating_for_probability(ability: Ability, p: float) -> float:
+    """Nghịch đảo của `predict` khi bỏ qua độ lệch kỹ năng: rating bài tập cho xác suất thô `p`."""
+    return ability.theta - ability.config.scale * _logit(p)
+
+
 def update(ability: Ability, obs: Observation) -> Ability:
     config = ability.config
     surprise = (1.0 if obs.correct else 0.0) - predict(ability, obs.skills, obs.rating)
@@ -154,6 +159,10 @@ def _logit(p: float) -> float:
     return math.log(q / (1 - q))
 
 
+A_LIMIT = 3.0
+B_MIN, B_MAX = 0.25, 4.0
+
+
 @dataclass(frozen=True)
 class ProbabilityCalibration:
     """Hiệu chỉnh xác suất của mô hình: p' = σ(a + b·logit p). Mặc định (0, 1) là không đổi gì.
@@ -168,7 +177,7 @@ class ProbabilityCalibration:
         return _sigmoid(self.a + self.b * _logit(p))
 
     def invert(self, p: float) -> float:
-        """Xác suất thô mà sau hiệu chỉnh cho ra `p`."""
+        """Xác suất thô mà sau hiệu chỉnh xác suất cho ra `p`."""
         return _sigmoid((_logit(p) - self.a) / self.b)
 
     @classmethod
@@ -199,4 +208,5 @@ class ProbabilityCalibration:
             a, b = a + step_a, b + step_b
             if abs(step_a) + abs(step_b) < 1e-9:
                 break
-        return cls(a, b)
+        # Giữ hệ số trong khoảng an toàn: b quá nhỏ làm phép nghịch đảo (tìm rating mục tiêu) vọt ra vô cùng.
+        return cls(min(max(a, -A_LIMIT), A_LIMIT), min(max(b, B_MIN), B_MAX))

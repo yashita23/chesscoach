@@ -9,6 +9,9 @@ import chess.pgn
 import httpx
 
 
+DEFAULT_USER_AGENT = "chesscoach/0.1.0 (nhvuliz196@gmail.com)"
+
+
 @dataclass(frozen=True)
 class RawGame:
     """Ván cờ tải về từ nguồn bên ngoài (Lichess/Chess.com)."""
@@ -221,7 +224,9 @@ class FakeGameSource(GameSource):
             g_played = g.played_at
             if g_played.tzinfo is None:
                 g_played = g_played.replace(tzinfo=timezone.utc)
-            if since_cmp is not None and g_played <= since_cmp:
+            # Dùng < thay vì <= để không bỏ sót các ván mới có cùng mốc thời gian biên;
+            # SyncEngine sẽ lọc trùng ván theo platform_game_id.
+            if since_cmp is not None and g_played < since_cmp:
                 continue
             filtered.append(g)
 
@@ -232,15 +237,22 @@ class FakeGameSource(GameSource):
 class LichessAdapter(GameSource):
     """Adapter lấy ván cờ từ Lichess API công khai."""
 
-    def __init__(self, base_url: str = "https://lichess.org", timeout: float = 15.0) -> None:
+    def __init__(
+        self,
+        base_url: str = "https://lichess.org",
+        timeout: float = 15.0,
+        user_agent: str = DEFAULT_USER_AGENT,
+    ) -> None:
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
+        self.user_agent = user_agent
 
     def check_user_exists(self, username: str) -> bool:
         url = f"{self.base_url}/api/user/{username}"
+        headers = {"User-Agent": self.user_agent}
         try:
             with httpx.Client(timeout=self.timeout) as client:
-                res = client.get(url)
+                res = client.get(url, headers=headers)
                 if res.status_code == 200:
                     return True
                 if res.status_code == 404:
@@ -249,7 +261,9 @@ class LichessAdapter(GameSource):
                     raise RateLimitError("Lichess: Quá nhiều yêu cầu (HTTP 429). Vui lòng thử lại sau.")
                 res.raise_for_status()
                 return False
-        except (httpx.ConnectError, httpx.TimeoutException, httpx.NetworkError) as e:
+        except (httpx.ConnectError, httpx.TimeoutException, httpx.NetworkError, httpx.HTTPError) as e:
+            if isinstance(e, RateLimitError):
+                raise
             raise SourceNetworkError(f"Lỗi kết nối tới Lichess: {e}") from e
 
     def fetch_games(
@@ -271,7 +285,10 @@ class LichessAdapter(GameSource):
             # Lichess API dùng timestamp tính bằng mili-giây
             params["since"] = int(since.timestamp() * 1000)
 
-        headers = {"Accept": "application/x-chess-pgn"}
+        headers = {
+            "User-Agent": self.user_agent,
+            "Accept": "application/x-chess-pgn",
+        }
         try:
             with httpx.Client(timeout=self.timeout) as client:
                 res = client.get(url, params=params, headers=headers)
@@ -281,5 +298,7 @@ class LichessAdapter(GameSource):
                     raise RateLimitError("Lichess: Quá nhiều yêu cầu (HTTP 429). Vui lòng chờ vài phút rồi thử lại.")
                 res.raise_for_status()
                 return parse_lichess_pgn(res.text, allowed_perfs=perf_types)
-        except (httpx.ConnectError, httpx.TimeoutException, httpx.NetworkError) as e:
+        except (httpx.ConnectError, httpx.TimeoutException, httpx.NetworkError, httpx.HTTPError) as e:
+            if isinstance(e, (RateLimitError, UserNotFoundError)):
+                raise
             raise SourceNetworkError(f"Không thể tải ván từ Lichess do lỗi mạng: {e}") from e

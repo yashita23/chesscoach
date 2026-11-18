@@ -254,6 +254,64 @@ def test_sync_partial_failure_preserves_saved_games(
         assert account.last_synced_at is None
 
 
+def test_sync_same_timestamp_boundary_behavior(
+    session_factory: sessionmaker[Session], player_alice: int
+) -> None:
+    # Hai ván khác nhau có cùng timestamp (ví dụ chơi cùng 1 thời điểm)
+    shared_dt = datetime(2026, 11, 10, 12, 0, tzinfo=timezone.utc)
+    game_a = RawGame(
+        game_id="same_time_a",
+        pgn=SAMPLE_PGN_1,
+        played_at=shared_dt,
+        perf_type="blitz",
+    )
+    game_b = RawGame(
+        game_id="same_time_b",
+        pgn=SAMPLE_PGN_2,
+        played_at=shared_dt,
+        perf_type="blitz",
+    )
+
+    # Đã lưu game_a trước đó, last_game_at = shared_dt
+    with session_factory() as db:
+        db.add(
+            Game(
+                player_id=player_alice,
+                account_id=1,
+                platform="lichess",
+                platform_game_id="same_time_a",
+                perf_type="blitz",
+                played_at=shared_dt,
+                pgn=SAMPLE_PGN_1,
+                has_evals=False,
+            )
+        )
+        acc = db.scalars(
+            select(LinkedAccount).where(
+                LinkedAccount.player_id == player_alice, LinkedAccount.platform == "lichess"
+            )
+        ).one()
+        acc.last_game_at = shared_dt
+        db.commit()
+
+    # Nguồn trả cả game_a và game_b
+    source = FakeGameSource(
+        existing_users={"alice_lichess"},
+        games_by_user={"alice_lichess": [game_a, game_b]},
+    )
+
+    engine = SyncEngine(session_factory)
+    engine.start_sync(player_alice, "lichess", source)
+    engine.wait_for_job(player_alice, timeout=5.0)
+
+    # game_b phải được nhập về, game_a không bị nhân đôi
+    with session_factory() as db:
+        games = db.scalars(select(Game).where(Game.player_id == player_alice)).all()
+        assert len(games) == 2
+        game_ids = {g.platform_game_id for g in games}
+        assert game_ids == {"same_time_a", "same_time_b"}
+
+
 def test_sync_retry_on_429(session_factory: sessionmaker[Session], player_alice: int) -> None:
     class FlakyRateLimitedSource(FakeGameSource):
         def __init__(self) -> None:

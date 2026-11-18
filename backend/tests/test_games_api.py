@@ -191,3 +191,27 @@ def test_sync_does_not_block_puzzle_solving(app_client: TestClient) -> None:
     gate.set()
     poll_sync_done(app_client)
 
+
+def test_offline_mode_serves_saved_games(
+    app_client: TestClient, fake_source: FakeGameSource
+) -> None:
+    register_new_player(app_client, "alice@example.com")
+    app_client.post("/api/accounts/lichess", json={"username": "alice_lichess"})
+    poll_sync_done(app_client)
+
+    # Đã có 2 ván lưu trong DB
+    assert app_client.get("/api/games").json()["total"] == 2
+
+    # Mất mạng (nguồn bên ngoài ngắt kết nối)
+    fake_source.network_error = True
+
+    # App chạy offline: tài khoản và ván đã lưu vẫn đọc bình thường từ DB cục bộ
+    acc_res = app_client.get("/api/accounts")
+    assert acc_res.status_code == 200
+    assert acc_res.json()[0]["games_count"] == 2
+
+    games_res = app_client.get("/api/games")
+    assert games_res.status_code == 200
+    assert games_res.json()["total"] == 2
+
+

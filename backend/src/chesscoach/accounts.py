@@ -246,3 +246,4 @@ def list_games(
             for g in games
         ],
     )
+

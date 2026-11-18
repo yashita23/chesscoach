@@ -5,7 +5,7 @@ import threading
 import time
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session, sessionmaker
 
 from chesscoach.db import Game, LinkedAccount
@@ -91,6 +91,15 @@ class SyncEngine:
             thread.join(timeout=timeout)
 
     def _run_sync(self, job: SyncJob, source: GameSource) -> None:
+        try:
+            self._do_sync(job, source)
+        except Exception as e:
+            log.exception("Lỗi trong luồng đồng bộ ván: %s", e)
+            job.status = "failed"
+            job.error = f"Lỗi đồng bộ: {e}"
+            job.finished_at = datetime.now(timezone.utc)
+
+    def _do_sync(self, job: SyncJob, source: GameSource) -> None:
         job.status = "running"
         player_id = job.player_id
         platform = job.platform
@@ -187,12 +196,15 @@ class SyncEngine:
 
         # Cập nhật mốc đồng bộ thành công vào tài khoản liên kết
         with self.session_factory() as db:
-            acc = db.get(LinkedAccount, account_id)
-            if acc is not None:
-                acc.last_synced_at = datetime.now(timezone.utc)
-                if latest_played_at is not None:
-                    acc.last_game_at = latest_played_at
-                db.commit()
+            values: dict[str, Any] = {"last_synced_at": datetime.now(timezone.utc)}
+            if latest_played_at is not None:
+                values["last_game_at"] = latest_played_at
+            db.execute(
+                update(LinkedAccount)
+                .where(LinkedAccount.id == account_id)
+                .values(**values)
+            )
+            db.commit()
 
         job.new_games_count = new_count
         job.status = "completed"

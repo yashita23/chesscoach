@@ -160,6 +160,10 @@ def test_lichess_adapter_mocked(monkeypatch: pytest.MonkeyPatch) -> None:
             pass
 
         def get(self, url: str, **kwargs: object) -> httpx.Response:
+            headers = kwargs.get("headers", {})
+            header_keys = [k.lower() for k in headers.keys()] if isinstance(headers, dict) else []
+            assert "user-agent" in header_keys, "Lichess requests must specify a User-Agent header"
+
             req = httpx.Request("GET", url)
             if "api/user/existing" in url:
                 return httpx.Response(200, json={"id": "existing"}, request=req)

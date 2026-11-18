@@ -1,7 +1,17 @@
 from collections.abc import Iterable
 from datetime import datetime, timedelta
 
-from sqlalchemy import DateTime, ForeignKey, String, create_engine, func, inspect, text
+from sqlalchemy import (
+    DateTime,
+    ForeignKey,
+    String,
+    Text,
+    UniqueConstraint,
+    create_engine,
+    func,
+    inspect,
+    text,
+)
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.pool import StaticPool
@@ -87,6 +97,44 @@ class Attempt(Base):
         if self.solve_time_ms is None:
             return None
         return self.started_at + timedelta(milliseconds=self.solve_time_ms)
+
+
+class LinkedAccount(Base):
+    """Tài khoản liên kết: tài khoản Lichess hoặc Chess.com người chơi gắn vào hồ sơ."""
+
+    __tablename__ = "linked_accounts"
+    __table_args__ = (UniqueConstraint("player_id", "platform", name="uq_player_platform"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    player_id: Mapped[int] = mapped_column(ForeignKey("players.id", ondelete="CASCADE"), index=True)
+    platform: Mapped[str] = mapped_column(String(32))
+    username: Mapped[str] = mapped_column(String(100))
+    last_synced_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    """Thời điểm đồng bộ thành công gần nhất."""
+    last_game_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    """Thời điểm ván cờ mới nhất đã được tải về."""
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class Game(Base):
+    """Ván cờ của người chơi được tải về từ tài khoản liên kết và lưu trữ cục bộ."""
+
+    __tablename__ = "games"
+    __table_args__ = (
+        UniqueConstraint("player_id", "platform", "platform_game_id", name="uq_player_platform_game"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    player_id: Mapped[int] = mapped_column(ForeignKey("players.id", ondelete="CASCADE"), index=True)
+    account_id: Mapped[int] = mapped_column(ForeignKey("linked_accounts.id", ondelete="CASCADE"), index=True)
+    platform: Mapped[str] = mapped_column(String(32))
+    platform_game_id: Mapped[str] = mapped_column(String(64), index=True)
+    perf_type: Mapped[str] = mapped_column(String(32))
+    played_at: Mapped[datetime] = mapped_column(DateTime, index=True)
+    pgn: Mapped[str] = mapped_column(Text)
+    has_evals: Mapped[bool] = mapped_column(default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
 
 
 def add_missing_columns(engine: Engine) -> None:

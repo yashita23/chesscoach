@@ -120,6 +120,30 @@ export type Practice = {
   items: PracticeItem[]
 }
 
+export type LinkedAccount = {
+  id: number
+  platform: string
+  username: string
+  last_synced_at: string | null
+  last_game_at: string | null
+  games_count: number
+}
+
+export type SyncJobStatus = {
+  status: 'idle' | 'pending' | 'running' | 'completed' | 'failed'
+  platform: string
+  current: number
+  total: number
+  new_games_count: number
+  error: string | null
+  last_synced_at: string | null
+}
+
+export type LinkAccountResponse = {
+  account: LinkedAccount
+  job: SyncJobStatus
+}
+
 export const api = {
   me: () => request<Player>('GET', '/me'),
   register: (email: string, password: string, display_name: string) =>
@@ -135,4 +159,9 @@ export const api = {
   practice: () => request<Practice>('GET', '/practice'),
   updateMe: (changes: { daily_minutes?: number; claimed_rating?: number }) =>
     request<Player>('PATCH', '/me', changes),
+  getAccounts: () => request<LinkedAccount[]>('GET', '/accounts'),
+  linkLichess: (username: string) =>
+    request<LinkAccountResponse>('POST', '/accounts/lichess', { username }),
+  syncLichess: () => request<SyncJobStatus>('POST', '/sync/lichess'),
+  getSyncStatus: () => request<SyncJobStatus>('GET', '/sync/status'),
 }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api, ApiError, type Profile, type SkillGroupProfile } from './api'
+import LinkedAccounts from './LinkedAccounts'
 
 const SIZE = 320
 const CENTER = SIZE / 2
@@ -109,6 +110,8 @@ export default function ProfileView() {
         </div>
         <Radar groups={profile.groups} theta={profile.theta} />
       </div>
+
+      <LinkedAccounts />
 
       <table className="skills">
         <thead>

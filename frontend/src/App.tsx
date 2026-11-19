@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { api, ApiError, type Player } from './api'
+import GameAnalysisView from './components/analysis/GameAnalysisView'
+import { MistakesHistoryView } from './components/analysis/MistakesHistoryView'
 import ProfileView from './ProfileView'
 import PuzzleTrainer from './PuzzleTrainer'
 
@@ -103,10 +105,11 @@ function AuthForm({ onAuthenticated }: { onAuthenticated: (p: Player) => void })
   )
 }
 
-type Tab = 'train' | 'profile'
+type Tab = 'train' | 'profile' | 'analysis'
 
 function Home({ player, onLogout }: { player: Player; onLogout: () => void }) {
   const [tab, setTab] = useState<Tab>('train')
+  const [selectedGameId, setSelectedGameId] = useState<number | null>(null)
   // Vừa xong bài kiểm tra đầu vào: mở hồ sơ kỹ năng sơ bộ trước khi vào buổi luyện.
   const [placementJustDone, setPlacementJustDone] = useState(false)
   const onPlacementDone = useCallback(() => {
@@ -130,6 +133,18 @@ function Home({ player, onLogout }: { player: Player; onLogout: () => void }) {
           <button type="button" aria-current={tab === 'profile'} onClick={() => setTab('profile')}>
             Hồ sơ kỹ năng
           </button>
+          <button
+            type="button"
+            aria-current={tab === 'analysis'}
+            onClick={() => {
+              if (tab === 'analysis') {
+                setSelectedGameId(null)
+              }
+              setTab('analysis')
+            }}
+          >
+            Phân tích ván cờ
+          </button>
         </nav>
         <span>
           {player.display_name}
@@ -141,7 +156,7 @@ function Home({ player, onLogout }: { player: Player; onLogout: () => void }) {
       <main className="content">
         {tab === 'train' ? (
           <PuzzleTrainer onPlacementDone={onPlacementDone} />
-        ) : (
+        ) : tab === 'profile' ? (
           <>
             {placementJustDone && (
               <p className="notice" role="status">
@@ -154,6 +169,15 @@ function Home({ player, onLogout }: { player: Player; onLogout: () => void }) {
             )}
             <ProfileView />
           </>
+        ) : selectedGameId === null ? (
+          <MistakesHistoryView
+            onSelectMistake={(gameId) => setSelectedGameId(gameId)}
+          />
+        ) : (
+          <GameAnalysisView
+            gameId={selectedGameId}
+            onBack={() => setSelectedGameId(null)}
+          />
         )}
       </main>
     </>

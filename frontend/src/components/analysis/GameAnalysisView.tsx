@@ -72,6 +72,16 @@ export default function GameAnalysisView({
   if (loading) {
     return (
       <section className="center">
+        {onBack && (
+          <button
+            type="button"
+            className="link btn-back-to-list"
+            onClick={onBack}
+            aria-label="Quay lại danh sách"
+          >
+            ← Quay lại danh sách
+          </button>
+        )}
         <p>Đang tải dữ liệu phân tích ván cờ…</p>
       </section>
     )
@@ -81,8 +91,13 @@ export default function GameAnalysisView({
     return (
       <section className="panel card">
         {onBack && (
-          <button type="button" className="link" onClick={onBack}>
-            ← Quay lại
+          <button
+            type="button"
+            className="link btn-back-to-list"
+            onClick={onBack}
+            aria-label="Quay lại danh sách"
+          >
+            ← Quay lại danh sách
           </button>
         )}
         <p className="error" role="alert">
@@ -99,8 +114,13 @@ export default function GameAnalysisView({
     return (
       <section className="card">
         {onBack && (
-          <button type="button" className="link" onClick={onBack}>
-            ← Quay lại
+          <button
+            type="button"
+            className="link btn-back-to-list"
+            onClick={onBack}
+            aria-label="Quay lại danh sách"
+          >
+            ← Quay lại danh sách
           </button>
         )}
         <h2>Trạng thái phân tích</h2>
@@ -115,8 +135,13 @@ export default function GameAnalysisView({
     return (
       <section className="card">
         {onBack && (
-          <button type="button" className="link" onClick={onBack}>
-            ← Quay lại
+          <button
+            type="button"
+            className="link btn-back-to-list"
+            onClick={onBack}
+            aria-label="Quay lại danh sách"
+          >
+            ← Quay lại danh sách
           </button>
         )}
         <h2>Phân tích thất bại</h2>
@@ -132,8 +157,13 @@ export default function GameAnalysisView({
     return (
       <section className="card">
         {onBack && (
-          <button type="button" className="link" onClick={onBack}>
-            ← Quay lại
+          <button
+            type="button"
+            className="link btn-back-to-list"
+            onClick={onBack}
+            aria-label="Quay lại danh sách"
+          >
+            ← Quay lại danh sách
           </button>
         )}
         <h2>Kết quả phân tích</h2>
@@ -166,8 +196,13 @@ export default function GameAnalysisView({
     <div className="game-analysis-view">
       <header className="analysis-header">
         {onBack && (
-          <button type="button" className="link" onClick={onBack}>
-            ← Quay lại
+          <button
+            type="button"
+            className="link btn-back-to-list"
+            onClick={onBack}
+            aria-label="Quay lại danh sách"
+          >
+            ← Quay lại danh sách
           </button>
         )}
         <h2>Phân tích ván cờ #{data.game_id}</h2>

@@ -19,9 +19,12 @@ _DUMMY_HASH = bcrypt.hashpw(b"khong-dung-de-dang-nhap", bcrypt.gensalt())
 
 
 def get_db(request: Request) -> Iterator[Session]:
+    from chesscoach.games_sync import get_engine_lock
+
     factory: sessionmaker[Session] = request.app.state.session_factory
-    with factory() as db:
-        yield db
+    with get_engine_lock(factory):
+        with factory() as db:
+            yield db
 
 
 Db = Annotated[Session, Depends(get_db)]

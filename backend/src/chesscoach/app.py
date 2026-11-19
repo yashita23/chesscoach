@@ -4,7 +4,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from sqlalchemy.orm import sessionmaker
 
-from chesscoach import ability_history, accounts, attempts, auth, practice, profile
+from chesscoach import ability_history, accounts, analysis_api, attempts, auth, practice, profile
 from chesscoach.db import Base, add_missing_columns, make_engine
 from chesscoach.games_source import GameSource, LichessAdapter
 from chesscoach.games_sync import SyncEngine
@@ -48,6 +48,7 @@ def create_app(
     app.include_router(profile.router)
     app.include_router(practice.router)
     app.include_router(accounts.router)
+    app.include_router(analysis_api.router)
     return app
 
 

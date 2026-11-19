@@ -133,6 +133,35 @@ class Game(Base):
     played_at: Mapped[datetime] = mapped_column(DateTime, index=True)
     pgn: Mapped[str] = mapped_column(Text)
     has_evals: Mapped[bool] = mapped_column(default=False)
+    analysis_status: Mapped[str] = mapped_column(String(32), default="pending", server_default="pending")
+    analyzed_at: Mapped[datetime | None] = mapped_column(DateTime, default=None)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class GameMistakeRecord(Base):
+    """Bản ghi lỗi của người chơi trong một ván cờ, được lưu vào CSDL."""
+
+    __tablename__ = "game_mistakes"
+    __table_args__ = (
+        UniqueConstraint("game_id", "ply", name="uq_game_mistake_ply"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    game_id: Mapped[int] = mapped_column(ForeignKey("games.id", ondelete="CASCADE"), index=True)
+    player_id: Mapped[int] = mapped_column(ForeignKey("players.id", ondelete="CASCADE"), index=True)
+    ply: Mapped[int] = mapped_column()
+    move_number: Mapped[int] = mapped_column()
+    move_san: Mapped[str] = mapped_column(String(16))
+    move_uci: Mapped[str] = mapped_column(String(16))
+    fen: Mapped[str] = mapped_column(String(120))
+    win_before: Mapped[float] = mapped_column()
+    win_after: Mapped[float] = mapped_column()
+    win_loss: Mapped[float] = mapped_column()
+    skill_id: Mapped[str] = mapped_column(String(64), index=True)
+    motif: Mapped[str] = mapped_column(String(64))
+    game_phase: Mapped[str] = mapped_column(String(32))
+    best_move: Mapped[str | None] = mapped_column(String(16), default=None)
+    refutation_move: Mapped[str | None] = mapped_column(String(16), default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
 
@@ -140,18 +169,41 @@ class Game(Base):
 def add_missing_columns(engine: Engine) -> None:
     """Thêm cột mới (cho phép NULL) vào bảng đã có, vì create_all không sửa bảng cũ.
 
-    Chưa có công cụ migration; đủ cho DB local khi model chỉ thêm cột.
+    Chưa có công cụ migration; đủ cho DB local khi model chỉ thêm cột hoặc thêm bảng.
     """
     inspector = inspect(engine)
     with engine.begin() as conn:
         for table in Base.metadata.sorted_tables:
             if not inspector.has_table(table.name):
+                table.create(conn)
                 continue
             existing = {c["name"] for c in inspector.get_columns(table.name)}
             for column in table.columns:
                 if column.name not in existing:
                     kind = column.type.compile(engine.dialect)
-                    conn.execute(text(f'ALTER TABLE "{table.name}" ADD COLUMN "{column.name}" {kind}'))
+                    default_clause = ""
+                    if column.server_default is not None:
+                        arg = getattr(column.server_default, "arg", None)
+                        if isinstance(arg, str):
+                            default_clause = f" DEFAULT '{arg}'"
+                        elif arg is not None:
+                            default_clause = f" DEFAULT {arg}"
+                    conn.execute(
+                        text(
+                            f'ALTER TABLE "{table.name}" ADD COLUMN "{column.name}" {kind}{default_clause}'
+                        )
+                    )
+            # Đảm bảo các dòng cũ trong games có analysis_status = 'pending' nếu đang NULL
+            if table.name == "games":
+                current_cols = {c["name"] for c in inspector.get_columns("games")} | {
+                    c.name for c in table.columns
+                }
+                if "analysis_status" in current_cols:
+                    conn.execute(
+                        text(
+                            'UPDATE "games" SET "analysis_status" = \'pending\' WHERE "analysis_status" IS NULL'
+                        )
+                    )
 
 
 def make_engine(database_url: str) -> Engine:

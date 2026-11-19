@@ -144,6 +144,56 @@ export type LinkAccountResponse = {
   job: SyncJobStatus
 }
 
+export type MistakeOut = {
+  id: number
+  ply: number
+  move_number: number
+  move_san: string
+  move_uci: string
+  fen: string
+  win_before: number
+  win_after: number
+  win_loss: number
+  skill_id: string
+  motif: string
+  game_phase: 'opening' | 'middlegame' | 'endgame'
+  best_move: string | null
+  refutation_move: string | null
+}
+
+export type GameAnalysisOut = {
+  game_id: number
+  platform: string
+  platform_game_id: string
+  perf_type: string
+  played_at: string
+  analysis_status: 'pending' | 'analyzing' | 'completed' | 'failed'
+  analyzed_at: string | null
+  mistakes: MistakeOut[]
+}
+
+export type PlayerMistakeItemOut = MistakeOut & {
+  game_id: number
+  platform: string
+  platform_game_id: string
+  played_at: string
+}
+
+export type PlayerMistakesListOut = {
+  total: number
+  mistakes: PlayerMistakeItemOut[]
+}
+
+export type ListMistakesParams = {
+  skill_id?: string
+  game_phase?: 'opening' | 'middlegame' | 'endgame'
+  from_date?: string
+  to_date?: string
+  order_by?: 'played_at_desc' | 'played_at_asc' | 'win_loss_desc' | 'win_loss_asc'
+  limit?: number
+  offset?: number
+}
+
 export const api = {
   me: () => request<Player>('GET', '/me'),
   register: (email: string, password: string, display_name: string) =>
@@ -164,4 +214,17 @@ export const api = {
     request<LinkAccountResponse>('POST', '/accounts/lichess', { username }),
   syncLichess: () => request<SyncJobStatus>('POST', '/sync/lichess'),
   getSyncStatus: () => request<SyncJobStatus>('GET', '/sync/status'),
+  getGameAnalysis: (gameId: number) => request<GameAnalysisOut>('GET', `/games/${gameId}/analysis`),
+  listPlayerMistakes: (params?: ListMistakesParams) => {
+    const q = new URLSearchParams()
+    if (params?.skill_id) q.set('skill_id', params.skill_id)
+    if (params?.game_phase) q.set('game_phase', params.game_phase)
+    if (params?.from_date) q.set('from_date', params.from_date)
+    if (params?.to_date) q.set('to_date', params.to_date)
+    if (params?.order_by) q.set('order_by', params.order_by)
+    if (params?.limit !== undefined) q.set('limit', String(params.limit))
+    if (params?.offset !== undefined) q.set('offset', String(params.offset))
+    const qs = q.toString()
+    return request<PlayerMistakesListOut>('GET', `/games/analysis/mistakes${qs ? `?${qs}` : ''}`)
+  },
 }
